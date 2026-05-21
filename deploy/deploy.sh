@@ -6,7 +6,7 @@
 set -e
 
 # ── CONFIG ──────────────────────────────────────────────────
-REPO_URL="__GITHUB_REPO_URL__"      # ← reemplazado por setup-github.sh
+REPO_URL="https://github.com/PERRS04/STOCK365.git"
 APP_DIR="/var/www/stock365"
 DOMAIN="app-stock365.com"
 PHP="php8.3"
