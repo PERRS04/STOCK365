@@ -1,0 +1,15 @@
+[Unit]
+Description=STOCK365 Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/stock365
+ExecStart=/bin/bash -c 'while true; do /usr/bin/php8.3 artisan schedule:run >> /var/www/stock365/storage/logs/scheduler.log 2>&1; sleep 60; done'
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

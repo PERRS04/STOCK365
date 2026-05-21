@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --color-primary: #003594;
+    --color-accent: #FFD100;
+}
+
+@layer utilities {
+    .text-stock-primary { color: #003594; }
+    .text-stock-accent  { color: #FFD100; }
+    .bg-stock-primary   { background-color: #003594; }
+    .bg-stock-accent    { background-color: #FFD100; }
+    .bg-stock-light     { background-color: #f3f4f6; }
+    .border-stock-primary { border-color: #003594; }
+    .border-stock-accent  { border-color: #FFD100; }
+}
