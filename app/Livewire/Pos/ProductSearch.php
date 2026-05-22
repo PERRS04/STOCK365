@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Pos;
 
+use App\Models\Inventory;
 use App\Models\Product;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -13,7 +15,7 @@ class ProductSearch extends Component
     #[Computed]
     public function products()
     {
-        return Product::where('activo', true)
+        $products = Product::where('activo', true)
             ->when($this->search, function ($q) {
                 $q->where(function ($inner) {
                     $inner->where('nombre', 'like', "%{$this->search}%")
@@ -24,6 +26,21 @@ class ProductSearch extends Component
             ->orderBy('nombre')
             ->limit(48)
             ->get();
+
+        $sedeId = Auth::user()?->sede_id;
+
+        if ($sedeId) {
+            $stockMap = Inventory::where('sede_id', $sedeId)
+                ->pluck('cantidad_stock', 'product_id');
+
+            $products->each(function ($product) use ($stockMap) {
+                $product->stock_sede = $stockMap->get($product->id, 0);
+            });
+        } else {
+            $products->each(fn($p) => $p->stock_sede = null);
+        }
+
+        return $products;
     }
 
     // Called when the operator presses Enter in the search box.

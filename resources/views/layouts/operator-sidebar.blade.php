@@ -10,7 +10,7 @@
     {{-- Sede badge --}}
     <div class="px-5 py-3 border-b border-white/[0.07] shrink-0">
         <p class="text-[10px] text-blue-200/40 uppercase tracking-widest mb-0.5">Sede activa</p>
-        <p class="text-[13px] font-semibold text-white">{{ auth()->user()->sede->nombre }}</p>
+        <p class="text-[13px] font-semibold text-white">{{ auth()->user()->sede?->nombre ?? '—' }}</p>
     </div>
 
     {{-- Nav --}}
@@ -28,7 +28,9 @@
         <p class="px-3 pt-4 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-blue-200/40">Operaciones</p>
 
         @php
-            $activeCashSession = \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id);
+            $activeCashSession = auth()->user()->sede_id
+            ? \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id)
+            : null;
         @endphp
 
         <a href="{{ $activeCashSession ? route('cash-session.status') : route('cash-session.create') }}"

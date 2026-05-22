@@ -105,8 +105,12 @@ class CashSession extends Model
 
     // ── Static helpers ────────────────────────────────────────────────────────
 
-    public static function activeForUser(int $userId, int $sedeId): ?self
+    public static function activeForUser(int $userId, ?int $sedeId): ?self
     {
+        if ($sedeId === null) {
+            return null;
+        }
+
         return static::where('user_id', $userId)
             ->where('sede_id', $sedeId)
             ->where('status', 'open')

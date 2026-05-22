@@ -29,16 +29,35 @@
         wire:loading.class.delay="opacity-50"
     >
         @forelse($this->products as $product)
+        @php
+            $stock = $product->stock_sede;
+            $sinStock = $stock !== null && $stock === 0;
+            $stockBajo = $stock !== null && $stock > 0 && $stock < $product->stock_minimo;
+        @endphp
             <button
                 type="button"
                 onclick="window.dispatchEvent(new CustomEvent('add-to-cart', { detail: { id: {{ $product->id }}, nombre: {{ json_encode($product->nombre) }}, precio: {{ (float)$product->precio_venta }} } }))"
-                class="bg-white border-2 border-gray-200 hover:border-stock-accent focus:border-stock-accent focus:outline-none rounded-lg p-3 text-left transition group"
+                @if($sinStock) title="Sin stock disponible" @endif
+                class="relative bg-white border-2 rounded-lg p-3 text-left transition group
+                       {{ $sinStock
+                            ? 'border-gray-100 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-stock-accent focus:border-stock-accent focus:outline-none' }}"
             >
-                <p class="font-semibold text-gray-800 text-sm leading-tight group-hover:text-stock-primary transition">
+                {{-- Stock badge --}}
+                @if($stock !== null)
+                    <span class="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                        {{ $sinStock  ? 'bg-red-100 text-red-600'
+                          : ($stockBajo ? 'bg-amber-100 text-amber-700'
+                          :               'bg-emerald-50 text-emerald-700') }}">
+                        {{ $sinStock ? 'Sin stock' : ($stockBajo ? 'Bajo: '.$stock : $stock.' uds') }}
+                    </span>
+                @endif
+
+                <p class="font-semibold text-gray-800 text-sm leading-tight {{ $sinStock ? '' : 'group-hover:text-stock-primary' }} transition pr-12">
                     {{ $product->nombre }}
                 </p>
                 <p class="text-xs text-gray-500 mt-1">{{ $product->marca }} · {{ $product->tamaño }}</p>
-                <p class="text-stock-primary font-bold mt-2 text-sm">{{ formatCurrency($product->precio_venta) }}</p>
+                <p class="{{ $sinStock ? 'text-gray-400' : 'text-stock-primary' }} font-bold mt-2 text-sm">{{ formatCurrency($product->precio_venta) }}</p>
                 <p class="text-xs text-gray-400 font-mono mt-1">{{ $product->sku }}</p>
             </button>
         @empty
