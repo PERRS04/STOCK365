@@ -100,7 +100,7 @@
                     @php $pct = $totalVentas > 0 ? round(($sv->total / $totalVentas) * 100) : 0; @endphp
                     <div>
                         <div class="flex items-center justify-between text-[12px] mb-1">
-                            <span class="text-gray-700 font-medium">{{ $sv->sede->nombre ?? 'Desconocida' }}</span>
+                            <span class="text-gray-700 font-medium">{{ $sv->sede?->nombre ?? 'Desconocida' }}</span>
                             <span class="text-gray-900 font-semibold">${{ number_format($sv->total, 0) }}</span>
                         </div>
                         <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">

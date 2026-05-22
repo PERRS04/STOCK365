@@ -130,7 +130,7 @@ class CashClosingController extends Controller
 
         ActivityLogger::log(
             'closing.approve',
-            "Cierre aprobado — {$closing->sede->nombre} | Total: \${$closing->total_sistema} | Diferencia: \${$closing->diferencia}",
+            "Cierre aprobado — " . ($closing->sede?->nombre ?? '—') . " | Total: \${$closing->total_sistema} | Diferencia: \${$closing->diferencia}",
             $closing,
             ['estado' => 'pendiente'],
             ['estado' => 'aprobado']
@@ -155,7 +155,7 @@ class CashClosingController extends Controller
 
         ActivityLogger::log(
             'closing.reject',
-            "Cierre rechazado — {$closing->sede->nombre} | Total: \${$closing->total_sistema}",
+            "Cierre rechazado — " . ($closing->sede?->nombre ?? '—') . " | Total: \${$closing->total_sistema}",
             $closing,
             ['estado' => 'pendiente'],
             ['estado' => 'rechazado']

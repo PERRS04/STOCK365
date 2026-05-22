@@ -137,7 +137,7 @@ class StockTransferController extends Controller
                     'sede_id'          => $transfer->from_sede_id,
                     'tipo'             => 'transferencia',
                     'cantidad'         => $item->cantidad,
-                    'motivo'           => "Transferencia salida → {$transfer->toSede->nombre}",
+                    'motivo'           => "Transferencia salida → " . ($transfer->toSede?->nombre ?? "sede {$transfer->to_sede_id}"),
                     'reference_id'     => $transfer->id,
                     'reference_type'   => 'transfer',
                     'user_id'          => auth()->id(),
@@ -150,7 +150,7 @@ class StockTransferController extends Controller
                     'sede_id'          => $transfer->to_sede_id,
                     'tipo'             => 'entrada',
                     'cantidad'         => $item->cantidad,
-                    'motivo'           => "Transferencia recibida ← {$transfer->fromSede->nombre}",
+                    'motivo'           => "Transferencia recibida ← " . ($transfer->fromSede?->nombre ?? "sede {$transfer->from_sede_id}"),
                     'reference_id'     => $transfer->id,
                     'reference_type'   => 'transfer',
                     'user_id'          => auth()->id(),
@@ -166,7 +166,7 @@ class StockTransferController extends Controller
             ]);
 
             ActivityLogger::log('transferencia.aprobada',
-                "Transferencia aprobada: {$transfer->fromSede->nombre} → {$transfer->toSede->nombre}",
+                "Transferencia aprobada: " . ($transfer->fromSede?->nombre ?? "sede {$transfer->from_sede_id}") . " → " . ($transfer->toSede?->nombre ?? "sede {$transfer->to_sede_id}"),
                 $transfer);
         });
 
@@ -191,7 +191,7 @@ class StockTransferController extends Controller
         ]);
 
         ActivityLogger::log('transferencia.rechazada',
-            "Transferencia rechazada: {$transfer->fromSede->nombre} → {$transfer->toSede->nombre}",
+            "Transferencia rechazada: " . ($transfer->fromSede?->nombre ?? "sede {$transfer->from_sede_id}") . " → " . ($transfer->toSede?->nombre ?? "sede {$transfer->to_sede_id}"),
             $transfer);
 
         return redirect()->route('transfers.index')->with('warning', 'Transferencia rechazada.');

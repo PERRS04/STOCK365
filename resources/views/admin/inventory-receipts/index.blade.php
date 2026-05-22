@@ -68,8 +68,8 @@
                 @endphp
                 <tr class="hover:bg-gray-50/50">
                     <td class="px-5 py-3 text-gray-500 whitespace-nowrap text-[12px]">{{ $receipt->created_at->format('d/m/Y H:i') }}</td>
-                    <td class="px-5 py-3 font-medium text-gray-800">{{ $receipt->user->name }}</td>
-                    <td class="px-5 py-3 text-gray-600">{{ $receipt->sede->nombre }}</td>
+                    <td class="px-5 py-3 font-medium text-gray-800">{{ $receipt->user?->name ?? '—' }}</td>
+                    <td class="px-5 py-3 text-gray-600">{{ $receipt->sede?->nombre ?? '—' }}</td>
                     <td class="px-5 py-3 text-gray-700 max-w-[180px] truncate">{{ $receipt->supplier_name }}</td>
                     <td class="px-5 py-3 text-right font-semibold text-gray-900">${{ number_format($receipt->monto_pagado, 2) }}</td>
                     <td class="px-5 py-3 text-center">

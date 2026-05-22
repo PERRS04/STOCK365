@@ -23,8 +23,8 @@
                 @forelse($closings as $closing)
                     <tr class="hover:bg-gray-50 transition">
                         <td class="py-3 px-4 text-gray-500">{{ $closing->fecha_cierre->format('d/m/Y H:i') }}</td>
-                        <td class="py-3 px-4 font-medium">{{ $closing->sede->nombre }}</td>
-                        <td class="py-3 px-4 text-gray-600">{{ $closing->user->name }}</td>
+                        <td class="py-3 px-4 font-medium">{{ $closing->sede?->nombre ?? '—' }}</td>
+                        <td class="py-3 px-4 text-gray-600">{{ $closing->user?->name ?? '—' }}</td>
                         <td class="py-3 px-4 text-right font-semibold">{{ formatCurrency($closing->total_sistema) }}</td>
                         <td class="py-3 px-4 text-right">{{ formatCurrency($closing->efectivo) }}</td>
                         <td class="py-3 px-4 text-right font-bold {{ abs($closing->diferencia) < 0.01 ? 'text-green-600' : 'text-red-600' }}">
@@ -33,7 +33,7 @@
                         <td class="py-3 px-4">
                             <div class="flex items-center justify-center space-x-2">
                                 <form action="{{ route('cash-closings.approve', $closing) }}" method="POST"
-                                      data-confirm="¿Aprobar el cierre de {{ $closing->user->name }}?">
+                                      data-confirm="¿Aprobar el cierre de {{ $closing->user?->name ?? 'operador' }}?">
                                     @csrf
                                     @method('PATCH')
                                     <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition">Aprobar</button>

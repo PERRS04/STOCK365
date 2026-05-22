@@ -57,7 +57,7 @@ class InventoryReceiptController extends Controller
 
         ActivityLogger::log(
             'recepcion.registrada',
-            "Recepción registrada: {$validated['supplier_name']} · \${$validated['monto_pagado']} · " . auth()->user()->sede->nombre,
+            "Recepción registrada: {$validated['supplier_name']} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : ""),
             $receipt
         );
 
@@ -177,7 +177,7 @@ class InventoryReceiptController extends Controller
 
             ActivityLogger::log(
                 'recepcion.aprobada',
-                "Recepción aprobada: {$receipt->supplier_name} · \${$receipt->monto_pagado} · {$receipt->sede->nombre}",
+                "Recepción aprobada: {$receipt->supplier_name} · \${$receipt->monto_pagado}" . ($receipt->sede ? " · " . $receipt->sede->nombre : ""),
                 $receipt
             );
         });
@@ -209,7 +209,7 @@ class InventoryReceiptController extends Controller
 
         ActivityLogger::log(
             'recepcion.rechazada',
-            "Recepción rechazada: {$receipt->supplier_name} · {$receipt->sede->nombre}",
+            "Recepción rechazada: {$receipt->supplier_name}" . ($receipt->sede ? " · " . $receipt->sede->nombre : ""),
             $receipt
         );
 

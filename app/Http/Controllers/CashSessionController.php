@@ -51,7 +51,7 @@ class CashSessionController extends Controller
 
         ActivityLogger::log(
             'cash_session.open',
-            "Caja abierta — {$user->sede->nombre} | Monto inicial: \${$session->opening_amount}",
+            "Caja abierta — " . ($user->sede?->nombre ?? '—') . " | Monto inicial: \${$session->opening_amount}",
             $session,
             [],
             ['opening_amount' => $session->opening_amount]
@@ -107,7 +107,7 @@ class CashSessionController extends Controller
 
         ActivityLogger::log(
             'cash_session.force_close',
-            "Caja cerrada forzosamente — {$cashSession->sede->nombre} | Operador: {$cashSession->user->name}",
+            "Caja cerrada forzosamente — " . ($cashSession->sede?->nombre ?? '—') . " | Operador: " . ($cashSession->user?->name ?? '—'),
             $cashSession,
             ['status' => 'open'],
             ['status' => 'closed']

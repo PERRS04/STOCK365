@@ -58,9 +58,9 @@
                 @endphp
                 <tr class="hover:bg-gray-50/50">
                     <td class="px-5 py-3 text-gray-500 text-[12px] whitespace-nowrap">{{ $transfer->created_at->format('d/m/Y H:i') }}</td>
-                    <td class="px-5 py-3 font-medium text-gray-900">{{ $transfer->fromSede->nombre }}</td>
-                    <td class="px-5 py-3 text-gray-700">→ {{ $transfer->toSede->nombre }}</td>
-                    <td class="px-5 py-3 text-gray-500">{{ $transfer->createdBy->name }}</td>
+                    <td class="px-5 py-3 font-medium text-gray-900">{{ $transfer->fromSede?->nombre ?? '—' }}</td>
+                    <td class="px-5 py-3 text-gray-700">→ {{ $transfer->toSede?->nombre ?? '—' }}</td>
+                    <td class="px-5 py-3 text-gray-500">{{ $transfer->createdBy?->name ?? '—' }}</td>
                     <td class="px-5 py-3 text-center">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium {{ $stateCls }}">{{ $stateLabel }}</span>
                     </td>

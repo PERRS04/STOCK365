@@ -21,7 +21,7 @@
                 @forelse($sales as $sale)
                     <tr class="hover:bg-gray-50 transition" x-data="{ open: false }">
                         <td class="py-3 px-5 text-gray-500 whitespace-nowrap">{{ $sale->fecha_venta->format('d/m/Y H:i') }}</td>
-                        <td class="py-3 px-5 text-gray-600">{{ $sale->user->name ?? '—' }}</td>
+                        <td class="py-3 px-5 text-gray-600">{{ $sale->user?->name ?? '—' }}</td>
                         <td class="py-3 px-5">
                             <button @click="open = !open" class="text-blue-600 hover:underline text-xs focus:outline-none">
                                 {{ $sale->items->count() }} producto(s) <span x-text="open ? '▲' : '▼'"></span>
@@ -29,7 +29,7 @@
                             <div x-show="open" class="mt-2 space-y-1">
                                 @foreach($sale->items as $item)
                                     <div class="text-xs text-gray-600 flex justify-between">
-                                        <span>{{ $item->product->nombre }} ×{{ $item->cantidad }}</span>
+                                        <span>{{ $item->product?->nombre ?? '(producto eliminado)' }} ×{{ $item->cantidad }}</span>
                                         <span class="ml-4">{{ formatCurrency($item->subtotal) }}</span>
                                     </div>
                                 @endforeach
