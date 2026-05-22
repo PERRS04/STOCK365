@@ -42,12 +42,14 @@ class InventorySeeder extends Seeder
                     $stock = rand((int)($min * 1.5), $min * 4);
                 }
 
-                Inventory::create([
-                    'product_id'           => $product->id,
-                    'sede_id'              => $sede->id,
-                    'cantidad_stock'       => $stock,
-                    'ultima_actualizacion' => now()->subHours(rand(1, 48)),
-                ]);
+                Inventory::updateOrCreate(
+                    ['product_id' => $product->id, 'sede_id' => $sede->id],
+                    [
+                        'cantidad_stock'       => $stock,
+                        'stock_recomendado'    => 24,
+                        'ultima_actualizacion' => now()->subHours(rand(1, 48)),
+                    ]
+                );
             }
         }
     }
