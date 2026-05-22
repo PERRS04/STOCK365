@@ -23,7 +23,7 @@ class InventoryTable extends Component
     {
         abort_unless(auth()->user()->can('inventory.view'), 403);
         if (!$this->sedeId) {
-            $this->sedeId = Sede::where('activa', true)->value('id');
+            $this->sedeId = Sede::where('activa', true)->orderBy('nombre')->value('id');
         }
     }
 

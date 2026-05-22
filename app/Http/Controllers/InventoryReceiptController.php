@@ -31,6 +31,11 @@ class InventoryReceiptController extends Controller
     {
         abort_unless(auth()->user()->can('receipts.create'), 403);
 
+        if (auth()->user()->sede_id === null) {
+            return redirect()->back()
+                ->withErrors(['sede_id' => 'Necesitas tener una sede asignada para registrar recepciones. Pide al administrador que te asigne una sede.']);
+        }
+
         $validated = $request->validate([
             'supplier_name' => 'required|string|max:255',
             'provider_id'   => 'nullable|exists:providers,id',
@@ -111,11 +116,21 @@ class InventoryReceiptController extends Controller
 
         $validated = $request->validate([
             'notas_aprobacion'          => 'nullable|string|max:1000',
+            'sede_id_override'          => 'nullable|exists:sedes,id',
             'items'                     => 'required|array|min:1',
             'items.*.product_id'        => 'required|exists:products,id',
             'items.*.cantidad'          => 'required|integer|min:1',
             'items.*.costo_unitario'    => 'required|numeric|min:0',
         ]);
+
+        // Receipts created by the boss (sede_id = null) need a sede assigned at approval time.
+        if ($receipt->sede_id === null) {
+            if (empty($validated['sede_id_override'])) {
+                return back()->withErrors(['sede_id_override' => 'Esta recepción no tiene sede asignada. Selecciona la sede de destino antes de aprobar.']);
+            }
+            $receipt->update(['sede_id' => $validated['sede_id_override']]);
+            $receipt->refresh();
+        }
 
         DB::transaction(function () use ($receipt, $validated) {
             foreach ($validated['items'] as $item) {

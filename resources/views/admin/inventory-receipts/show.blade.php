@@ -128,6 +128,24 @@
                     @csrf
                     <div class="p-5 space-y-4">
 
+                        @error('sede_id_override')
+                            <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{{ $message }}</p>
+                        @enderror
+
+                        {{-- Sede selector for receipts with no sede (created by boss) --}}
+                        @if($receipt->sede_id === null)
+                        <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                            <p class="text-[11px] font-semibold text-amber-700">Esta recepción no tiene sede asignada. Selecciona la sede de destino:</p>
+                            <select name="sede_id_override" required
+                                    class="w-full px-2.5 py-2 text-[12px] border border-amber-300 rounded-lg focus:outline-none focus:border-stock-primary focus:ring-1 focus:ring-stock-primary/20">
+                                <option value="">— Seleccionar sede —</option>
+                                @foreach(\App\Models\Sede::where('activa', true)->orderBy('nombre')->get() as $s)
+                                    <option value="{{ $s->id }}">{{ $s->nombre }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+
                         {{-- Items header --}}
                         <div class="grid grid-cols-12 gap-2 px-1">
                             <div class="col-span-5 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Producto</div>

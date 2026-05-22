@@ -75,6 +75,7 @@
         <p class="px-3 pt-4 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-blue-200/40">Inventario</p>
 
         @can('receipts.create')
+        @if(auth()->user()->sede_id !== null)
         @php $pendingMyReceipts = \App\Models\InventoryReceipt::where('user_id', auth()->id())->where('estado', 'pendiente')->count(); @endphp
         <a href="{{ route('inventory-receipts.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
@@ -87,6 +88,7 @@
                 <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-indigo-400/70 text-white">{{ $pendingMyReceipts }}</span>
             @endif
         </a>
+        @endif
         @endcan
 
     </nav>
