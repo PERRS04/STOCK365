@@ -19,6 +19,9 @@ class User extends Authenticatable
     use Notifiable;
     use TwoFactorAuthenticatable;
 
+    // Spatie must always use the web guard — prevents sanctum guard mismatch.
+    public string $guard_name = 'web';
+
     protected $fillable = [
         'name',
         'email',

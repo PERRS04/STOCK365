@@ -17,9 +17,13 @@ class AppServiceProvider extends ServiceProvider
     {
         Paginator::useBootstrap();
 
-        // Spatie's HasRoles registers a 'before' gate callback that handles
-        // permission checks via can(). The legacy gates below are kept only
-        // for the isBoss()/isOperator() shorthand calls in legacy code paths.
+        // Boss role bypasses every permission check — must run before Spatie's gate callback.
+        Gate::before(function ($user, $ability) {
+            if ($user->hasRole('boss')) {
+                return true;
+            }
+        });
+
         Gate::define('boss', fn ($user) => $user->isBoss());
         Gate::define('operator', fn ($user) => $user->isOperator());
     }

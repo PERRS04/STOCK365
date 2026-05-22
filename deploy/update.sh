@@ -20,10 +20,10 @@ composer install --no-dev --optimize-autoloader --no-interaction --quiet
 
 $PHP artisan migrate --force --quiet
 
-# Recompilar caches
+# Recompilar caches (route:cache omitted — breaks Fortify dynamic routes)
 $PHP artisan config:cache --quiet
-$PHP artisan route:cache --quiet
 $PHP artisan view:cache --quiet
+$PHP artisan permission:cache-reset --quiet
 
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
