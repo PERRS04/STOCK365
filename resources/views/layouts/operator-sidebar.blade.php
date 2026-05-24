@@ -79,7 +79,7 @@
 
         {{-- Cortesías --}}
         @if(auth()->user()->isOperator())
-        <a href="{{ route('courtesies.index') }}"
+        <a href="{{ route('courtesies.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
                   {{ request()->routeIs('courtesies.*') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
             <svg class="w-[15px] h-[15px] shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +94,7 @@
 
         {{-- Depósitos / Caja --}}
         @if(auth()->user()->isOperator())
-        <a href="{{ route('cash-movements.index') }}"
+        <a href="{{ route('cash-movements.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
                   {{ request()->routeIs('cash-movements.*') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
             <svg class="w-[15px] h-[15px] shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
