@@ -83,24 +83,24 @@
                     <span>@yield('title')</span>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="text-[13px] text-gray-600 font-medium">{{ auth()->user()->name }}</span>
-                    <div class="relative group">
-                        <button class="w-7 h-7 rounded-full bg-stock-primary/10 text-stock-primary flex items-center justify-center hover:bg-stock-primary/15 transition">
-                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-stock-primary/10 text-stock-primary flex items-center justify-center shrink-0">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
                             </svg>
-                        </button>
-                        <div class="absolute right-0 top-9 w-44 bg-white rounded-xl shadow-xl border border-gray-100 hidden group-hover:block z-50 py-1">
-                            <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-gray-700 hover:bg-gray-50">Mi Perfil</a>
-                            <div class="my-1 border-t border-gray-100"></div>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="w-full text-left flex items-center gap-2.5 px-4 py-2 text-[13px] text-red-600 hover:bg-red-50">
-                                    Cerrar Sesión
-                                </button>
-                            </form>
                         </div>
+                        <span class="text-[13px] text-gray-700 font-medium">{{ auth()->user()->name }}</span>
                     </div>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[12px] font-medium hover:bg-red-50 hover:border-red-300 transition-colors">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                            </svg>
+                            Cerrar sesión
+                        </button>
+                    </form>
                 </div>
             </header>
 

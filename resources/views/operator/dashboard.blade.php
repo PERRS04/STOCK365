@@ -123,8 +123,11 @@
 
         </div>
 
-        {{-- Right: Actions + Closing --}}
+        {{-- Right: Live Cash Box + Actions + Closing --}}
         <div class="col-span-2 space-y-5">
+
+            {{-- Live cash box --}}
+            @livewire('live-cash-box')
 
             {{-- Quick actions --}}
             <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
