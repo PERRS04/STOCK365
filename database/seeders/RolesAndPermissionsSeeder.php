@@ -30,6 +30,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'users.manage',
             'receipts.create',
             'receipts.approve',
+            'courtesies.create',
+            'courtesies.approve',
+            'cash_movements.create',
+            'cash_movements.approve',
         ];
 
         foreach ($permissions as $name) {
@@ -42,6 +46,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'sales.edit.same_day',
             'sales.view.own',
             'receipts.create',
+            'courtesies.create',
+            'cash_movements.create',
         ]);
 
         $supervisor = Role::firstOrCreate(['name' => 'supervisor']);
@@ -57,6 +63,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'reports.view',
             'receipts.create',
             'receipts.approve',
+            'courtesies.create',
+            'courtesies.approve',
+            'cash_movements.create',
+            'cash_movements.approve',
         ]);
 
         $boss = Role::firstOrCreate(['name' => 'boss']);

@@ -4,7 +4,9 @@
     $activeAlertCount      = \App\Models\StockAlert::where('alerta_activa', true)->count();
     $activeSessionsCount   = \App\Models\CashSession::whereIn('status', ['open', 'pending_closing'])->count();
     $pendingReceiptsCount  = \App\Models\InventoryReceipt::where('estado', 'pendiente')->count();
-    $pendingTransfersCount = \App\Models\StockTransfer::where('estado', 'pendiente')->count();
+    $pendingTransfersCount    = \App\Models\StockTransfer::where('estado', 'pendiente')->count();
+    $pendingCourtesiesCount   = \App\Models\CourtesyTransaction::where('status', 'pendiente')->count();
+    $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')->count();
 
     $invOpen      = request()->routeIs('inventory.*', 'products.*', 'kardex.*', 'transfers.*', 'inventory.bulk-load');
     $comprasOpen  = request()->routeIs('inventory-receipts.*', 'suppliers.*', 'purchases.*', 'purchase-suggestions.*', 'purchase-orders.*');
@@ -13,6 +15,7 @@
     $cajaOpen     = request()->routeIs('cash-closings.*', 'cash-sessions.*', 'cash-session.*', 'cash-closing.*');
     $finOpen      = request()->routeIs('finances.*');
     $adminOpen    = request()->routeIs('users.*', 'sedes.*');
+    $operOpen     = request()->routeIs('courtesies.*', 'cash-movements.*', 'approvals.*');
 @endphp
 
 <aside class="w-60 bg-stock-primary flex flex-col shrink-0 overflow-hidden">
@@ -39,6 +42,60 @@
             </svg>
             Dashboard
         </a>
+
+        {{-- ── OPERACIONES ──────────────────────────────────── --}}
+        <div x-data="{ open: true }">
+            <button @click="open = !open"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
+                           {{ $operOpen ? 'bg-white/[0.10] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
+                <svg class="w-[14px] h-[14px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                <span class="flex-1 text-left">Operaciones</span>
+                @php $totalPendingOper = $pendingCourtesiesCount + $pendingCashMovementsCount; @endphp
+                @if($totalPendingOper > 0)
+                    <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-pink-500/80 text-white">{{ $totalPendingOper }}</span>
+                @endif
+                <svg class="w-3 h-3 shrink-0 transition-transform duration-150 opacity-40 ml-1" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+            <div x-show="open" x-cloak class="mt-0.5 ml-5 pl-3 border-l border-white/[0.08] space-y-0.5">
+                <a href="{{ route('courtesies.index') }}"
+                   class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-all
+                          {{ request()->routeIs('courtesies.*') ? 'text-white bg-white/[0.08]' : 'text-blue-100/50 hover:text-white hover:bg-white/[0.05]' }}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-1 h-1 rounded-full bg-current opacity-50 shrink-0"></span>
+                        Cortesías
+                    </span>
+                    @if($pendingCourtesiesCount > 0)
+                        <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-pink-500/70 text-white">{{ $pendingCourtesiesCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('cash-movements.index') }}"
+                   class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-all
+                          {{ request()->routeIs('cash-movements.*') ? 'text-white bg-white/[0.08]' : 'text-blue-100/50 hover:text-white hover:bg-white/[0.05]' }}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-1 h-1 rounded-full bg-current opacity-50 shrink-0"></span>
+                        Depósitos / Caja
+                    </span>
+                    @if($pendingCashMovementsCount > 0)
+                        <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-amber-400/80 text-white">{{ $pendingCashMovementsCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('approvals.index') }}"
+                   class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-all
+                          {{ request()->routeIs('approvals.*') ? 'text-white bg-white/[0.08]' : 'text-blue-100/50 hover:text-white hover:bg-white/[0.05]' }}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-1 h-1 rounded-full bg-current opacity-50 shrink-0"></span>
+                        Aprobaciones
+                    </span>
+                    @if($totalPendingOper > 0)
+                        <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-amber-500/70 text-white">{{ $totalPendingOper }}</span>
+                    @endif
+                </a>
+            </div>
+        </div>
 
         {{-- ── INVENTARIO ────────────────────────────────────── --}}
         <div x-data="{ open: {{ $invOpen ? 'true' : 'false' }} }">
@@ -244,6 +301,7 @@
                         <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-amber-500/70 text-white">{{ $pendingClosingsCount }}</span>
                     @endif
                 </a>
+
             </div>
         </div>
 

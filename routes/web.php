@@ -19,6 +19,9 @@ use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\PurchaseSuggestionsController;
 use App\Http\Controllers\FinancesController;
 use App\Http\Controllers\BulkInventoryController;
+use App\Http\Controllers\CourtesyController;
+use App\Http\Controllers\CashMovementController;
+use App\Http\Controllers\ApprovalController;
 
 Route::get('/', function () {
     return auth()->check()
@@ -107,6 +110,25 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
 
     // ── Finances ──────────────────────────────────────────────────────────────
     Route::get('/finances', [FinancesController::class, 'index'])->name('finances.index');
+
+    // ── Cortesías (operators register; supervisor/boss approve) ─────────────
+    Route::get('/cortesias/nueva',                    [CourtesyController::class, 'create'])->name('courtesies.create');
+    Route::post('/cortesias',                         [CourtesyController::class, 'store'])->name('courtesies.store');
+    Route::get('/cortesias',                          [CourtesyController::class, 'index'])->name('courtesies.index');
+    Route::get('/cortesias/{courtesy}',               [CourtesyController::class, 'show'])->name('courtesies.show');
+    Route::post('/cortesias/{courtesy}/aprobar',      [CourtesyController::class, 'approve'])->name('courtesies.approve');
+    Route::patch('/cortesias/{courtesy}/rechazar',    [CourtesyController::class, 'reject'])->name('courtesies.reject');
+
+    // ── Movimientos de Caja (operators register; supervisor/boss approve) ─────
+    Route::get('/caja/movimientos/nuevo',                    [CashMovementController::class, 'create'])->name('cash-movements.create');
+    Route::post('/caja/movimientos',                         [CashMovementController::class, 'store'])->name('cash-movements.store');
+    Route::get('/caja/movimientos',                          [CashMovementController::class, 'index'])->name('cash-movements.index');
+    Route::get('/caja/movimientos/{movement}',               [CashMovementController::class, 'show'])->name('cash-movements.show');
+    Route::post('/caja/movimientos/{movement}/aprobar',      [CashMovementController::class, 'approve'])->name('cash-movements.approve');
+    Route::patch('/caja/movimientos/{movement}/rechazar',    [CashMovementController::class, 'reject'])->name('cash-movements.reject');
+
+    // ── Approvals hub ─────────────────────────────────────────────────────────
+    Route::get('/aprobaciones', [ApprovalController::class, 'index'])->name('approvals.index');
 
     // ── Configuration (boss only) ─────────────────────────────────────────────
     Route::resource('sedes', SedeController::class);

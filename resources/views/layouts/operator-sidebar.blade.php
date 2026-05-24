@@ -1,4 +1,14 @@
 {{-- Sidebar OPERADOR --}}
+@php
+    $activeCashSession = auth()->user()->sede_id
+        ? \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id)
+        : null;
+    $hasSede = auth()->user()->sede_id !== null;
+    $pendingMyCourtesies    = $hasSede ? \App\Models\CourtesyTransaction::where('user_id', auth()->id())->where('status', 'pendiente')->count() : 0;
+    $pendingMyCashMovements = $hasSede ? \App\Models\CashMovement::where('user_id', auth()->id())->where('status', 'pendiente')->count() : 0;
+    $pendingMyReceipts      = $hasSede ? \App\Models\InventoryReceipt::where('user_id', auth()->id())->where('estado', 'pendiente')->count() : 0;
+@endphp
+
 <aside class="w-56 bg-stock-primary flex flex-col shrink-0 overflow-hidden">
 
     {{-- Logo --}}
@@ -25,13 +35,8 @@
             Dashboard
         </a>
 
+        {{-- ── OPERACIONES ──────────────────────────────────────── --}}
         <p class="px-3 pt-4 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-blue-200/40">Operaciones</p>
-
-        @php
-            $activeCashSession = auth()->user()->sede_id
-            ? \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id)
-            : null;
-        @endphp
 
         <a href="{{ $activeCashSession ? route('cash-session.status') : route('cash-session.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
@@ -72,14 +77,43 @@
             Historial
         </a>
 
-        <p class="px-3 pt-4 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-blue-200/40">Inventario</p>
+        {{-- Cortesías --}}
+        @if(auth()->user()->isOperator())
+        <a href="{{ route('courtesies.index') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
+                  {{ request()->routeIs('courtesies.*') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
+            </svg>
+            <span class="flex-1">Cortesías</span>
+            @if($pendingMyCourtesies > 0)
+                <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-pink-400/80 text-white">{{ $pendingMyCourtesies }}</span>
+            @endif
+        </a>
+        @endif
 
+        {{-- Depósitos / Caja --}}
+        @if(auth()->user()->isOperator())
+        <a href="{{ route('cash-movements.index') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
+                  {{ request()->routeIs('cash-movements.*') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span class="flex-1">Depósitos / Caja</span>
+            @if($pendingMyCashMovements > 0)
+                <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-amber-400/80 text-white">{{ $pendingMyCashMovements }}</span>
+            @endif
+        </a>
+        @endif
+
+        {{-- ── INVENTARIO ───────────────────────────────────────── --}}
         @can('receipts.create')
-        @if(auth()->user()->sede_id !== null)
-        @php $pendingMyReceipts = \App\Models\InventoryReceipt::where('user_id', auth()->id())->where('estado', 'pendiente')->count(); @endphp
+        @if($hasSede)
+        <p class="px-3 pt-4 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-blue-200/40">Inventario</p>
         <a href="{{ route('inventory-receipts.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all
-                  {{ request()->routeIs('inventory-receipts.create') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
+                  {{ request()->routeIs('inventory-receipts.*') ? 'bg-white/[0.12] text-white' : 'text-blue-100/70 hover:bg-white/[0.07] hover:text-white' }}">
             <svg class="w-[15px] h-[15px] shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
