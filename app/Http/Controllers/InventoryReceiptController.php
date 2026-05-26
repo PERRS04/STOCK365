@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashMovement;
+use App\Models\CashSession;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\Product;
+use App\Models\ReceiptPaymentAllocation;
+use App\Models\Sede;
 use App\Models\StockAlert;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
@@ -22,7 +26,13 @@ class InventoryReceiptController extends Controller
         abort_unless(auth()->user()->can('receipts.create'), 403);
 
         $providers = \App\Models\Provider::where('activo', true)->orderBy('nombre')->get();
-        return view('operator.inventory-receipt-create', compact('providers'));
+
+        $sedeActualId = auth()->user()->sede_id;
+        $sedes = $sedeActualId
+            ? Sede::where('id', '!=', $sedeActualId)->orderBy('nombre')->get()
+            : Sede::orderBy('nombre')->get();
+
+        return view('operator.inventory-receipt-create', compact('providers', 'sedes'));
     }
 
     // ── OPERATOR: store receipt ───────────────────────────────────────────────
@@ -37,11 +47,39 @@ class InventoryReceiptController extends Controller
         }
 
         $validated = $request->validate([
-            'provider_id'   => 'required|exists:providers,id',
-            'monto_pagado'  => 'required|numeric|min:0.01',
-            'observaciones' => 'nullable|string|max:1000',
-            'invoice_file'  => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
+            'provider_id'           => 'required|exists:providers,id',
+            'monto_pagado'          => 'required|numeric|min:0.01',
+            'observaciones'         => 'nullable|string|max:1000',
+            'invoice_file'          => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
+            'allocations'           => 'nullable|array|max:3',
+            'allocations.*.sede_id' => 'required|exists:sedes,id',
+            'allocations.*.monto'   => 'required|numeric|min:0.01',
         ]);
+
+        // Validate allocation totals
+        $allocations = array_filter($request->input('allocations', []), fn($a) => !empty($a['sede_id']) && !empty($a['monto']));
+        if (!empty($allocations)) {
+            $extTotal = collect($allocations)->sum('monto');
+
+            if ($extTotal >= $validated['monto_pagado']) {
+                return back()->withInput()->withErrors([
+                    'allocations' => 'La suma de aportes externos debe ser menor al monto total.',
+                ]);
+            }
+
+            $sedeIds = collect($allocations)->pluck('sede_id');
+            if ($sedeIds->unique()->count() !== $sedeIds->count()) {
+                return back()->withInput()->withErrors([
+                    'allocations' => 'No puedes asignar dos aportes a la misma sede.',
+                ]);
+            }
+
+            if ($sedeIds->contains((string) auth()->user()->sede_id)) {
+                return back()->withInput()->withErrors([
+                    'allocations' => 'No puedes asignarte un aporte externo a tu propia sede.',
+                ]);
+            }
+        }
 
         $provider = \App\Models\Provider::find($validated['provider_id']);
 
@@ -61,14 +99,28 @@ class InventoryReceiptController extends Controller
             'estado'        => 'pendiente',
         ]);
 
+        foreach ($allocations as $alloc) {
+            ReceiptPaymentAllocation::create([
+                'inventory_receipt_id' => $receipt->id,
+                'source_type'          => 'other_branch',
+                'source_sede_id'       => $alloc['sede_id'],
+                'amount'               => $alloc['monto'],
+                'status'               => 'pending',
+            ]);
+        }
+
+        $allocMsg = !empty($allocations)
+            ? ' · Con ' . count($allocations) . ' aporte(s) de otras sedes pendientes.'
+            : '';
+
         ActivityLogger::log(
             'recepcion.registrada',
-            "Recepción registrada: {$provider->nombre} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : ""),
+            "Recepción registrada: {$provider->nombre} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : "") . $allocMsg,
             $receipt
         );
 
         return redirect()->route('dashboard')
-            ->with('success', 'Recepción registrada. Pendiente de aprobación por supervisión.');
+            ->with('success', 'Recepción registrada. Pendiente de aprobación por supervisión.' . $allocMsg);
     }
 
     // ── ADMIN: list receipts ──────────────────────────────────────────────────
@@ -99,7 +151,7 @@ class InventoryReceiptController extends Controller
     {
         abort_unless(auth()->user()->can('receipts.approve'), 403);
 
-        $receipt->load('sede', 'user', 'items.product', 'approvedBy');
+        $receipt->load('sede', 'user', 'items.product', 'approvedBy', 'paymentAllocations.sourceSede');
         $products = Product::where('activo', true)->orderBy('nombre')->get();
 
         return view('admin.inventory-receipts.show', compact('receipt', 'products'));
@@ -124,7 +176,6 @@ class InventoryReceiptController extends Controller
             'items.*.costo_unitario'    => 'required|numeric|min:0',
         ]);
 
-        // Receipts created by the boss (sede_id = null) need a sede assigned at approval time.
         if ($receipt->sede_id === null) {
             if (empty($validated['sede_id_override'])) {
                 return back()->withErrors(['sede_id_override' => 'Esta recepción no tiene sede asignada. Selecciona la sede de destino antes de aprobar.']);
@@ -169,7 +220,6 @@ class InventoryReceiptController extends Controller
                     'fecha_movimiento' => now(),
                 ]);
 
-                // Update product's weighted average cost
                 $oldStock = $inventory->cantidad_stock - $item['cantidad'];
                 if ($oldStock + $item['cantidad'] > 0) {
                     $newAvgCost = (($oldStock * ($product->precio_compra ?? 0)) + ($item['cantidad'] * $item['costo_unitario']))
@@ -190,6 +240,36 @@ class InventoryReceiptController extends Controller
                 'aprobado_at'      => now(),
                 'notas_aprobacion' => $validated['notas_aprobacion'] ?? null,
             ]);
+
+            // ── Auto-deduct local portion from the sede's active cash session ────
+            $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $receipt->id)
+                ->where('source_type', 'other_branch')
+                ->sum('amount');
+
+            $localAmount = max(0, (float) $receipt->monto_pagado - $externalTotal);
+
+            if ($localAmount > 0) {
+                $activeSession = CashSession::where('sede_id', $receipt->sede_id)
+                    ->whereIn('status', ['open', 'pending_closing'])
+                    ->latest('opened_at')
+                    ->first();
+
+                if ($activeSession) {
+                    CashMovement::create([
+                        'sede_id'         => $receipt->sede_id,
+                        'user_id'         => $receipt->user_id,
+                        'cash_session_id' => $activeSession->id,
+                        'type'            => 'pago_proveedor',
+                        'amount'          => $localAmount,
+                        'motivo'          => "Pago proveedor: {$receipt->supplier_name}",
+                        'observaciones'   => "Recepción #{$receipt->id} aprobada",
+                        'status'          => 'aprobado',
+                        'approved_by'     => auth()->id(),
+                        'approved_at'     => now(),
+                    ]);
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────────
 
             ActivityLogger::log(
                 'recepcion.aprobada',

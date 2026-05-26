@@ -22,6 +22,7 @@ use App\Http\Controllers\BulkInventoryController;
 use App\Http\Controllers\CourtesyController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\SedePaymentController;
 
 Route::get('/', function () {
     return auth()->check()
@@ -130,6 +131,11 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
 
     // ── Approvals hub ─────────────────────────────────────────────────────────
     Route::get('/aprobaciones', [ApprovalController::class, 'index'])->name('approvals.index');
+
+    // ── Pagos entre sedes (operators confirm cross-sede receipt contributions) ─
+    Route::get('/pagos-sede/pendientes',                    [SedePaymentController::class, 'index'])->name('sede-payments.pending');
+    Route::get('/pagos-sede/{allocation}/confirmar',        [SedePaymentController::class, 'showConfirm'])->name('sede-payments.confirm.form');
+    Route::post('/pagos-sede/{allocation}/confirmar',       [SedePaymentController::class, 'confirm'])->name('sede-payments.confirm');
 
     // ── Configuration (boss only) ─────────────────────────────────────────────
     Route::resource('sedes', SedeController::class);

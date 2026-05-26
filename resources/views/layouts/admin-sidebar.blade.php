@@ -5,7 +5,7 @@
     $activeSessionsCount      = \App\Models\CashSession::whereIn('status', ['open', 'pending_closing'])->count();
     $pendingReceiptsCount     = \App\Models\InventoryReceipt::where('estado', 'pendiente')->count();
     $pendingTransfersCount    = \App\Models\StockTransfer::where('estado', 'pendiente')->count();
-    $pendingCourtesiesCount   = \App\Models\CourtesyTransaction::where('status', 'pendiente')->count();
+    $pendingCourtesiesCount   = 0; {{-- módulo desactivado temporalmente --}}
     $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')->count();
 
     $invOpen      = request()->routeIs('inventory.*', 'products.*', 'kardex.*', 'transfers.*', 'inventory.bulk-load');
@@ -65,17 +65,7 @@
                 </svg>
             </button>
             <div x-show="open" x-cloak class="mt-0.5 ml-5 pl-3 border-l border-white/[0.09] space-y-0.5">
-                <a href="{{ route('courtesies.index') }}"
-                   class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium
-                          {{ request()->routeIs('courtesies.*') ? 'nav-sub-active' : 'nav-sub-inactive' }}">
-                    <span class="flex items-center gap-2">
-                        <span class="w-1 h-1 rounded-full bg-current opacity-50 shrink-0"></span>
-                        Cortesías
-                    </span>
-                    @if($pendingCourtesiesCount > 0)
-                        <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-pink-500 text-white">{{ $pendingCourtesiesCount }}</span>
-                    @endif
-                </a>
+                {{-- Cortesías: módulo desactivado temporalmente --}}
                 <a href="{{ route('cash-movements.index') }}"
                    class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium
                           {{ request()->routeIs('cash-movements.*') ? 'nav-sub-active' : 'nav-sub-inactive' }}">

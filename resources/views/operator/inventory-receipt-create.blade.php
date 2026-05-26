@@ -29,7 +29,7 @@
             <h2 class="text-[13px] font-semibold text-gray-800">Datos de la recepción</h2>
         </div>
 
-        <div class="px-6 py-5 space-y-5">
+        <div class="px-6 py-5 space-y-5" x-data="receiptForm()">
 
             {{-- Proveedor --}}
             <div>
@@ -103,85 +103,14 @@
                 @enderror
             </div>
 
-            @push('scripts')
-            <script>
-            function providerSelect() {
-                const oldId = {{ old('provider_id') ? (int) old('provider_id') : 'null' }};
-                const allProviders = @json($providers->map(fn($p) => ['id' => $p->id, 'nombre' => $p->nombre]));
-                const initial = oldId ? allProviders.find(p => p.id === oldId) : null;
-
-                return {
-                    query: initial ? initial.nombre : '',
-                    selectedId: initial ? initial.id : null,
-                    isOpen: false,
-                    highlightedIndex: -1,
-                    providers: allProviders,
-
-                    get filtered() {
-                        const q = this.query.toLowerCase().trim();
-                        if (!q) return this.providers;
-                        const sel = this.providers.find(p => p.id === this.selectedId);
-                        if (sel && sel.nombre.toLowerCase() === q) return this.providers;
-                        return this.providers.filter(p => p.nombre.toLowerCase().includes(q));
-                    },
-
-                    onInput() {
-                        this.selectedId = null;
-                        this.isOpen = true;
-                        this.highlightedIndex = -1;
-                    },
-
-                    select(provider) {
-                        this.selectedId = provider.id;
-                        this.query = provider.nombre;
-                        this.isOpen = false;
-                        this.highlightedIndex = -1;
-                    },
-
-                    clear() {
-                        this.selectedId = null;
-                        this.query = '';
-                        this.isOpen = false;
-                        this.$nextTick(() => this.$refs.input.focus());
-                    },
-
-                    close() {
-                        this.isOpen = false;
-                        if (!this.selectedId) {
-                            this.query = '';
-                        } else {
-                            const sel = this.providers.find(p => p.id === this.selectedId);
-                            if (sel) this.query = sel.nombre;
-                        }
-                    },
-
-                    moveDown() {
-                        if (!this.isOpen) { this.isOpen = true; return; }
-                        if (this.highlightedIndex < this.filtered.length - 1) this.highlightedIndex++;
-                    },
-
-                    moveUp() {
-                        if (this.highlightedIndex > 0) this.highlightedIndex--;
-                    },
-
-                    confirm() {
-                        if (this.highlightedIndex >= 0 && this.filtered[this.highlightedIndex]) {
-                            this.select(this.filtered[this.highlightedIndex]);
-                        }
-                    }
-                }
-            }
-            </script>
-            @endpush
-
-            {{-- Monto --}}
+            {{-- Monto total --}}
             <div>
                 <label class="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 mb-1.5">
-                    Monto Pagado (USD) <span class="text-red-400">*</span>
+                    Monto Total Pagado (USD) <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-gray-400 font-medium">$</span>
-                    <input type="number" name="monto_pagado" value="{{ old('monto_pagado') }}"
+                    <input type="number" name="monto_pagado" x-model.number="total"
                            step="0.01" min="0.01" placeholder="0.00"
                            class="w-full pl-8 pr-3.5 py-2.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary focus:ring-2 focus:ring-stock-primary/20 transition @error('monto_pagado') border-red-300 @enderror">
                 </div>
@@ -189,6 +118,80 @@
                     <p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>
                 @enderror
             </div>
+
+            {{-- Apoyo de otras sedes (optional) --}}
+            @if($sedes->count() > 0)
+            <div class="border border-dashed border-gray-200 rounded-xl overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 bg-gray-50/70">
+                    <div>
+                        <p class="text-[12px] font-semibold text-gray-700">Apoyo de otra sede</p>
+                        <p class="text-[11px] text-gray-400 mt-0.5">Opcional · Si otra sede cubre parte del pago</p>
+                    </div>
+                    <button type="button" @click="addRow()"
+                            class="flex items-center gap-1.5 text-[11px] font-semibold text-stock-primary hover:text-blue-800 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Añadir sede
+                    </button>
+                </div>
+
+                <template x-if="allocs.length > 0">
+                    <div class="px-4 pb-4 pt-3 space-y-2">
+
+                        <template x-for="(alloc, i) in allocs" :key="i">
+                            <div class="flex items-center gap-2">
+                                <select :name="`allocations[${i}][sede_id]`" x-model="alloc.sede_id"
+                                        class="flex-1 px-3 py-2 text-[12px] border border-gray-200 rounded-lg
+                                               focus:outline-none focus:border-stock-primary focus:ring-1 focus:ring-stock-primary/20 transition bg-white">
+                                    <option value="">Seleccionar sede...</option>
+                                    @foreach($sedes as $sede)
+                                    <option value="{{ $sede->id }}">{{ $sede->nombre }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="relative w-28 shrink-0">
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">$</span>
+                                    <input type="number" :name="`allocations[${i}][monto]`"
+                                           x-model.number="alloc.monto"
+                                           step="0.01" min="0.01" placeholder="0.00"
+                                           class="w-full pl-6 pr-2 py-2 text-[12px] border border-gray-200 rounded-lg
+                                                  focus:outline-none focus:border-stock-primary focus:ring-1 focus:ring-stock-primary/20 transition">
+                                </div>
+                                <button type="button" @click="removeRow(i)"
+                                        class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300
+                                               hover:text-red-400 hover:bg-red-50 transition-colors shrink-0">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </template>
+
+                        {{-- Summary --}}
+                        <div class="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                            <div class="flex items-center justify-between text-[12px]">
+                                <span class="text-gray-500">Aportes externos</span>
+                                <span class="text-gray-700 font-medium num">$<span x-text="extTotal.toFixed(2)"></span></span>
+                            </div>
+                            <div class="flex items-center justify-between text-[13px] font-semibold">
+                                <span class="text-gray-700">Esta sede paga</span>
+                                <span :class="local < 0 ? 'text-red-600' : 'text-stock-primary'" class="num">
+                                    $<span x-text="local.toFixed(2)"></span>
+                                </span>
+                            </div>
+                            <p x-show="local < 0" class="text-[11px] text-red-500">
+                                Los aportes externos superan el monto total.
+                            </p>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+            @endif
+
+            @error('allocations')
+                <p class="text-[11px] text-red-500 -mt-3">{{ $message }}</p>
+            @enderror
 
             {{-- Observaciones --}}
             <div>
@@ -250,4 +253,104 @@
     </form>
 
 </div>
+
+@push('scripts')
+<script>
+function providerSelect() {
+    const oldId = {{ old('provider_id') ? (int) old('provider_id') : 'null' }};
+    const allProviders = @json($providers->map(fn($p) => ['id' => $p->id, 'nombre' => $p->nombre]));
+    const initial = oldId ? allProviders.find(p => p.id === oldId) : null;
+
+    return {
+        query: initial ? initial.nombre : '',
+        selectedId: initial ? initial.id : null,
+        isOpen: false,
+        highlightedIndex: -1,
+        providers: allProviders,
+
+        get filtered() {
+            const q = this.query.toLowerCase().trim();
+            if (!q) return this.providers;
+            const sel = this.providers.find(p => p.id === this.selectedId);
+            if (sel && sel.nombre.toLowerCase() === q) return this.providers;
+            return this.providers.filter(p => p.nombre.toLowerCase().includes(q));
+        },
+
+        onInput() {
+            this.selectedId = null;
+            this.isOpen = true;
+            this.highlightedIndex = -1;
+        },
+
+        select(provider) {
+            this.selectedId = provider.id;
+            this.query = provider.nombre;
+            this.isOpen = false;
+            this.highlightedIndex = -1;
+        },
+
+        clear() {
+            this.selectedId = null;
+            this.query = '';
+            this.isOpen = false;
+            this.$nextTick(() => this.$refs.input.focus());
+        },
+
+        close() {
+            this.isOpen = false;
+            if (!this.selectedId) {
+                this.query = '';
+            } else {
+                const sel = this.providers.find(p => p.id === this.selectedId);
+                if (sel) this.query = sel.nombre;
+            }
+        },
+
+        moveDown() {
+            if (!this.isOpen) { this.isOpen = true; return; }
+            if (this.highlightedIndex < this.filtered.length - 1) this.highlightedIndex++;
+        },
+
+        moveUp() {
+            if (this.highlightedIndex > 0) this.highlightedIndex--;
+        },
+
+        confirm() {
+            if (this.highlightedIndex >= 0 && this.filtered[this.highlightedIndex]) {
+                this.select(this.filtered[this.highlightedIndex]);
+            }
+        }
+    }
+}
+
+function receiptForm() {
+    const oldAllocs = @json(
+        collect(old('allocations', []))
+            ->filter(fn($a) => !empty($a['sede_id']))
+            ->map(fn($a) => ['sede_id' => (string)($a['sede_id'] ?? ''), 'monto' => isset($a['monto']) ? (float)$a['monto'] : null])
+            ->values()
+    );
+
+    return {
+        total: {{ old('monto_pagado') ? (float)old('monto_pagado') : 0 }},
+        allocs: oldAllocs.length ? oldAllocs : [],
+
+        get extTotal() {
+            return this.allocs.reduce((s, r) => s + (parseFloat(r.monto) || 0), 0);
+        },
+        get local() {
+            return Math.max(0, (parseFloat(this.total) || 0) - this.extTotal);
+        },
+
+        addRow() {
+            this.allocs.push({ sede_id: '', monto: null });
+        },
+        removeRow(i) {
+            this.allocs.splice(i, 1);
+        },
+    };
+}
+</script>
+@endpush
+
 @endsection

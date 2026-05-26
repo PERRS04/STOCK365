@@ -21,7 +21,8 @@ class InventoryReceipt extends Model
     public function user()       { return $this->belongsTo(User::class); }
     public function provider()   { return $this->belongsTo(Provider::class); }
     public function approvedBy() { return $this->belongsTo(User::class, 'aprobado_por'); }
-    public function items()      { return $this->hasMany(InventoryReceiptItem::class, 'receipt_id'); }
+    public function items()              { return $this->hasMany(InventoryReceiptItem::class, 'receipt_id'); }
+    public function paymentAllocations() { return $this->hasMany(ReceiptPaymentAllocation::class); }
 
     public function isPending():  bool { return $this->estado === 'pendiente'; }
     public function isApproved(): bool { return $this->estado === 'aprobado'; }

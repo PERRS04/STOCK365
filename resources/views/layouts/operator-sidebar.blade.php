@@ -4,9 +4,9 @@
         ? \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id)
         : null;
     $hasSede = auth()->user()->sede_id !== null;
-    $pendingMyCourtesies    = $hasSede ? \App\Models\CourtesyTransaction::where('user_id', auth()->id())->where('status', 'pendiente')->count() : 0;
     $pendingMyCashMovements = $hasSede ? \App\Models\CashMovement::where('user_id', auth()->id())->where('status', 'pendiente')->count() : 0;
     $pendingMyReceipts      = $hasSede ? \App\Models\InventoryReceipt::where('user_id', auth()->id())->where('estado', 'pendiente')->count() : 0;
+    $pendingSedePayments    = $hasSede ? \App\Models\ReceiptPaymentAllocation::where('source_sede_id', auth()->user()->sede_id)->where('status', 'pending')->count() : 0;
 @endphp
 
 <aside class="w-56 sidebar-bg flex flex-col shrink-0 overflow-hidden">
@@ -80,21 +80,6 @@
             Historial
         </a>
 
-        {{-- Cortesías --}}
-        @if(auth()->user()->isOperator())
-        <a href="{{ route('courtesies.create') }}"
-           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
-                  {{ request()->routeIs('courtesies.*') ? 'nav-active' : 'nav-inactive' }}">
-            <svg class="w-[15px] h-[15px] shrink-0 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
-            </svg>
-            <span class="flex-1">Cortesías</span>
-            @if($pendingMyCourtesies > 0)
-                <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-pink-500 text-white">{{ $pendingMyCourtesies }}</span>
-            @endif
-        </a>
-        @endif
-
         {{-- Depósitos / Caja --}}
         @if(auth()->user()->isOperator())
         <a href="{{ route('cash-movements.create') }}"
@@ -106,6 +91,21 @@
             <span class="flex-1">Depósitos / Caja</span>
             @if($pendingMyCashMovements > 0)
                 <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-amber-500 text-white">{{ $pendingMyCashMovements }}</span>
+            @endif
+        </a>
+        @endif
+
+        {{-- Pagos entre sedes --}}
+        @if($hasSede)
+        <a href="{{ route('sede-payments.pending') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
+                  {{ request()->routeIs('sede-payments.*') ? 'nav-active' : 'nav-inactive' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+            <span class="flex-1">Pagos entre sedes</span>
+            @if($pendingSedePayments > 0)
+                <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-orange-500 text-white">{{ $pendingSedePayments }}</span>
             @endif
         </a>
         @endif
