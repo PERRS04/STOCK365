@@ -19,6 +19,7 @@ class CashClosing extends Model
         'fecha_cierre',
         'total_sistema',
         'efectivo',
+        'saldo_final',
         'transferencias',
         'cheques',
         'diferencia',
@@ -29,13 +30,14 @@ class CashClosing extends Model
     ];
 
     protected $casts = [
-        'fecha_cierre' => 'datetime',
+        'fecha_cierre'  => 'datetime',
         'total_sistema' => 'decimal:2',
-        'efectivo' => 'decimal:2',
+        'efectivo'      => 'decimal:2',
+        'saldo_final'   => 'decimal:2',
         'transferencias' => 'decimal:2',
-        'cheques' => 'decimal:2',
-        'diferencia' => 'decimal:2',
-        'approved_at' => 'datetime',
+        'cheques'       => 'decimal:2',
+        'diferencia'    => 'decimal:2',
+        'approved_at'   => 'datetime',
     ];
 
     public function sede()

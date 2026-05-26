@@ -6,6 +6,7 @@ use App\Models\CashClosing;
 use App\Models\CashSession;
 use App\Models\Sale;
 use App\Services\ActivityLogger;
+use App\Services\LiveCashBoxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,16 +21,41 @@ class CashClosingController extends Controller
         $sede  = $user->sede;
         $today = now()->toDateString();
 
-        // Warn if a closing already exists for today
         $existingClosing = CashClosing::where('sede_id', $sede->id)
             ->whereDate('fecha_cierre', $today)
             ->whereIn('estado', ['pendiente', 'aprobado'])
             ->first();
 
-        $sales        = Sale::with('items')->where('sede_id', $sede->id)->whereDate('fecha_venta', $today)->get();
-        $totalSistema = $sales->sum('total_sistema');
+        // Active session (open or awaiting approval)
+        $session = CashSession::where('user_id', $user->id)
+            ->where('sede_id', $sede->id)
+            ->whereIn('status', ['open', 'pending_closing'])
+            ->first();
 
-        return view('operator.cash-closing', compact('sede', 'totalSistema', 'sales', 'existingClosing'));
+        // Live snapshot for the full expected balance breakdown
+        $snapshot     = null;
+        $totalSistema = 0;
+
+        if ($session) {
+            $service      = new LiveCashBoxService();
+            $snapshot     = $service->snapshot($session);
+            $totalSistema = $snapshot['total'];
+        }
+
+        // Sales list for the detail table
+        $sales = Sale::with('items')
+            ->where('sede_id', $sede->id)
+            ->whereDate('fecha_venta', $today)
+            ->get();
+
+        // Fallback when no session exists
+        if (!$snapshot) {
+            $totalSistema = $sales->sum('total_sistema');
+        }
+
+        return view('operator.cash-closing', compact(
+            'sede', 'totalSistema', 'sales', 'existingClosing', 'session', 'snapshot'
+        ));
     }
 
     public function store(Request $request)
@@ -37,7 +63,6 @@ class CashClosingController extends Controller
         abort_unless(auth()->user()->can('sales.create'), 403);
 
         $validated = $request->validate([
-            'monto_inicial'  => 'required|numeric|min:0',
             'efectivo'       => 'required|numeric|min:0',
             'transferencias' => 'nullable|numeric|min:0',
             'cheques'        => 'nullable|numeric|min:0',
@@ -49,7 +74,6 @@ class CashClosingController extends Controller
             $sede  = $user->sede;
             $today = now()->toDateString();
 
-            // Prevent duplicate closings
             $existing = CashClosing::where('sede_id', $sede->id)
                 ->whereDate('fecha_cierre', $today)
                 ->whereIn('estado', ['pendiente', 'aprobado'])
@@ -60,21 +84,34 @@ class CashClosingController extends Controller
                     ->with('warning', 'Ya existe un cierre de caja registrado para hoy.');
             }
 
-            $sales        = Sale::where('sede_id', $sede->id)->whereDate('fecha_venta', $today)->get();
-            $totalSistema = $sales->sum('total_sistema');
+            // Get current session to auto-populate monto_inicial and compute live balance
+            $cashSession = CashSession::where('user_id', $user->id)
+                ->where('sede_id', $sede->id)
+                ->whereIn('status', ['open', 'pending_closing'])
+                ->first();
 
-            $totalReportado = ($validated['efectivo'])
-                + ($validated['transferencias'] ?? 0)
-                + ($validated['cheques'] ?? 0);
+            // total_sistema = full live balance (opening + sales + movements - egresos - cortesias)
+            if ($cashSession) {
+                $service      = new LiveCashBoxService();
+                $snapshot     = $service->snapshot($cashSession);
+                $totalSistema = $snapshot['total'];
+            } else {
+                $totalSistema = Sale::where('sede_id', $sede->id)
+                    ->whereDate('fecha_venta', $today)
+                    ->sum('total_sistema');
+            }
+
+            $montoInicial   = $cashSession ? (float) $cashSession->opening_amount : 0;
+            $totalReportado = (float) $validated['efectivo']
+                + (float) ($validated['transferencias'] ?? 0)
+                + (float) ($validated['cheques'] ?? 0);
             $diferencia = $totalReportado - $totalSistema;
-
-            $cashSession = CashSession::activeForUser($user->id, $sede->id);
 
             $closing = CashClosing::create([
                 'sede_id'         => $sede->id,
                 'user_id'         => $user->id,
                 'cash_session_id' => $cashSession?->id,
-                'monto_inicial'   => $validated['monto_inicial'],
+                'monto_inicial'   => $montoInicial,
                 'fecha_cierre'    => now(),
                 'total_sistema'   => $totalSistema,
                 'efectivo'        => $validated['efectivo'],
@@ -85,13 +122,13 @@ class CashClosingController extends Controller
                 'estado'          => 'pendiente',
             ]);
 
-            if ($cashSession) {
+            if ($cashSession && $cashSession->isOpen()) {
                 $cashSession->update(['status' => 'pending_closing']);
             }
 
             ActivityLogger::log(
                 'closing.create',
-                "Cierre registrado — {$sede->nombre} | Sistema: \${$totalSistema} | Reportado: \${$totalReportado} | Diferencia: \${$diferencia}",
+                "Cierre registrado — {$sede->nombre} | Esperado: \${$totalSistema} | Efectivo: \${$validated['efectivo']} | Diferencia: \${$diferencia}",
                 $closing,
                 [],
                 ['total_sistema' => $totalSistema, 'diferencia' => $diferencia]
@@ -118,10 +155,15 @@ class CashClosingController extends Controller
     {
         abort_unless(auth()->user()->can('closings.approve'), 403);
 
+        // saldo_final = effective cash the operator physically counted
+        // This amount stays in the drawer and becomes tomorrow's opening
+        $saldoFinal = (float) $closing->efectivo;
+
         $closing->update([
             'estado'      => 'aprobado',
             'approved_by' => Auth::id(),
             'approved_at' => now(),
+            'saldo_final' => $saldoFinal,
         ]);
 
         if ($closing->cashSession && $closing->cashSession->isPendingClosing()) {
@@ -130,13 +172,14 @@ class CashClosingController extends Controller
 
         ActivityLogger::log(
             'closing.approve',
-            "Cierre aprobado — " . ($closing->sede?->nombre ?? '—') . " | Total: \${$closing->total_sistema} | Diferencia: \${$closing->diferencia}",
+            "Cierre aprobado — " . ($closing->sede?->nombre ?? '—') . " | Esperado: \${$closing->total_sistema} | Efectivo: \${$closing->efectivo} | Saldo final: \${$saldoFinal}",
             $closing,
             ['estado' => 'pendiente'],
-            ['estado' => 'aprobado']
+            ['estado' => 'aprobado', 'saldo_final' => $saldoFinal]
         );
 
-        return redirect()->back()->with('success', 'Cierre de caja aprobado correctamente');
+        return redirect()->back()
+            ->with('success', 'Cierre aprobado. Saldo final: $' . number_format($saldoFinal, 2) . ' → apertura de mañana.');
     }
 
     public function reject(Request $request, CashClosing $closing)
@@ -155,7 +198,7 @@ class CashClosingController extends Controller
 
         ActivityLogger::log(
             'closing.reject',
-            "Cierre rechazado — " . ($closing->sede?->nombre ?? '—') . " | Total: \${$closing->total_sistema}",
+            "Cierre rechazado — " . ($closing->sede?->nombre ?? '—') . " | Total esperado: \${$closing->total_sistema}",
             $closing,
             ['estado' => 'pendiente'],
             ['estado' => 'rechazado']

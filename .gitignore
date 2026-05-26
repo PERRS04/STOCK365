@@ -32,3 +32,6 @@ yarn-error.log
 /.vscode
 /BioLink
 /stock365
+artisan-utf8.ps1
+serve.bat
+public/debug.php

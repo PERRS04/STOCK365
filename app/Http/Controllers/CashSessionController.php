@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashClosing;
 use App\Models\CashSession;
+use App\Models\CashSessionAdjustment;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +22,21 @@ class CashSessionController extends Controller
             return redirect()->route('cash-session.status');
         }
 
-        return view('operator.cash-session-open', ['sede' => $user->sede]);
+        // Auto-inherit opening amount from last approved closing for this sede
+        $lastClosing = CashClosing::where('sede_id', $user->sede_id)
+            ->where('estado', 'aprobado')
+            ->whereNotNull('saldo_final')
+            ->orderBy('fecha_cierre', 'desc')
+            ->with('approvedBy')
+            ->first();
+
+        $inheritedAmount = $lastClosing ? (float) $lastClosing->saldo_final : 0.00;
+
+        return view('operator.cash-session-open', [
+            'sede'            => $user->sede,
+            'inheritedAmount' => $inheritedAmount,
+            'lastClosing'     => $lastClosing,
+        ]);
     }
 
     public function store(Request $request)
@@ -28,8 +44,7 @@ class CashSessionController extends Controller
         abort_unless(auth()->user()->isOperator(), 403);
 
         $validated = $request->validate([
-            'opening_amount' => 'required|numeric|min:0',
-            'notes'          => 'nullable|string|max:500',
+            'notes' => 'nullable|string|max:500',
         ]);
 
         $user    = Auth::user();
@@ -40,25 +55,39 @@ class CashSessionController extends Controller
                 ->with('info', 'Ya tienes una caja abierta.');
         }
 
+        // Auto-calculate opening from last approved closing
+        $lastClosing = CashClosing::where('sede_id', $user->sede_id)
+            ->where('estado', 'aprobado')
+            ->whereNotNull('saldo_final')
+            ->orderBy('fecha_cierre', 'desc')
+            ->first();
+
+        $openingAmount = $lastClosing ? (float) $lastClosing->saldo_final : 0.00;
+
         $session = CashSession::create([
-            'user_id'        => $user->id,
-            'sede_id'        => $user->sede_id,
-            'opening_amount' => $validated['opening_amount'],
-            'notes'          => $validated['notes'] ?? null,
-            'status'         => 'open',
-            'opened_at'      => now(),
+            'user_id'                   => $user->id,
+            'sede_id'                   => $user->sede_id,
+            'opening_amount'            => $openingAmount,
+            'inherited_from_closing_id' => $lastClosing?->id,
+            'notes'                     => $validated['notes'] ?? null,
+            'status'                    => 'open',
+            'opened_at'                 => now(),
         ]);
+
+        $source = $lastClosing
+            ? "Heredado del cierre {$lastClosing->fecha_cierre->format('d/m/Y')}"
+            : 'Primera apertura';
 
         ActivityLogger::log(
             'cash_session.open',
-            "Caja abierta — " . ($user->sede?->nombre ?? '—') . " | Monto inicial: \${$session->opening_amount}",
+            "Caja abierta — " . ($user->sede?->nombre ?? '—') . " | Apertura: \${$openingAmount} ({$source})",
             $session,
             [],
-            ['opening_amount' => $session->opening_amount]
+            ['opening_amount' => $openingAmount, 'source' => $source]
         );
 
         return redirect()->route('pos.create')
-            ->with('success', 'Caja abierta correctamente. ¡Listo para vender!');
+            ->with('success', 'Caja abierta. Apertura: $' . number_format($openingAmount, 2));
     }
 
     public function status()
@@ -69,7 +98,7 @@ class CashSessionController extends Controller
         $session = CashSession::where('user_id', $user->id)
             ->where('sede_id', $user->sede_id)
             ->whereIn('status', ['open', 'pending_closing'])
-            ->with('sales')
+            ->with(['sales', 'adjustments.adjustedBy', 'inheritedFromClosing'])
             ->first();
 
         return view('operator.cash-session-status', [
@@ -93,6 +122,44 @@ class CashSessionController extends Controller
             ->paginate(20);
 
         return view('admin.cash-sessions.index', compact('activeSessions', 'recentClosed'));
+    }
+
+    public function adjustOpening(Request $request, CashSession $cashSession)
+    {
+        abort_unless(auth()->user()->isAdminLevel(), 403);
+
+        if ($cashSession->isClosed()) {
+            return redirect()->back()->with('error', 'No se puede ajustar una sesión cerrada.');
+        }
+
+        $validated = $request->validate([
+            'monto_nuevo' => 'required|numeric|min:0',
+            'motivo'      => 'required|string|min:5|max:500',
+        ]);
+
+        $montoAnterior = (float) $cashSession->opening_amount;
+
+        CashSessionAdjustment::create([
+            'cash_session_id' => $cashSession->id,
+            'sede_id'         => $cashSession->sede_id,
+            'adjusted_by'     => Auth::id(),
+            'monto_anterior'  => $montoAnterior,
+            'monto_nuevo'     => $validated['monto_nuevo'],
+            'motivo'          => $validated['motivo'],
+        ]);
+
+        $cashSession->update(['opening_amount' => $validated['monto_nuevo']]);
+
+        ActivityLogger::log(
+            'cash_session.adjust_opening',
+            "Apertura ajustada — " . ($cashSession->sede?->nombre ?? '—') . " | Antes: \${$montoAnterior} → Después: \${$validated['monto_nuevo']} | Motivo: {$validated['motivo']}",
+            $cashSession,
+            ['opening_amount' => $montoAnterior],
+            ['opening_amount' => $validated['monto_nuevo'], 'motivo' => $validated['motivo']]
+        );
+
+        return redirect()->back()
+            ->with('success', 'Apertura ajustada a $' . number_format($validated['monto_nuevo'], 2) . '. Cambio auditado.');
     }
 
     public function forceClose(CashSession $cashSession)

@@ -7,7 +7,7 @@
     <title>{{ config('app.name', 'STOCK 365') }} — @yield('title')</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
 
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -16,36 +16,32 @@
 
     <style>
         [x-cloak] { display: none !important; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
-        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
     </style>
 </head>
-<body class="font-sans antialiased bg-[#f4f6fa]">
+<body class="font-sans antialiased bg-[#f0f2f8]">
 
-    {{-- Toast Container --}}
+    {{-- Toast container --}}
     <div
         x-data="toastSystem()"
         @toast.window="addToast($event.detail)"
         class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
-        style="min-width:300px;max-width:400px"
+        style="min-width:300px;max-width:420px"
     >
         <template x-for="t in toasts" :key="t.id">
             <div
                 x-show="t.visible"
-                x-transition:enter="transition ease-out duration-250"
-                x-transition:enter-start="opacity-0 translate-y-1"
-                x-transition:enter-end="opacity-100 translate-y-0"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                 x-transition:leave="transition ease-in duration-150"
                 x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-                class="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-card-lg border text-sm backdrop-blur-sm"
                 :class="{
-                    'bg-white border-emerald-200 text-emerald-800': t.type === 'success',
-                    'bg-white border-red-200 text-red-800':         t.type === 'error',
-                    'bg-white border-amber-200 text-amber-800':     t.type === 'warning',
-                    'bg-white border-blue-200 text-blue-800':       t.type === 'info',
+                    'bg-white/95 border-emerald-200 text-emerald-800': t.type === 'success',
+                    'bg-white/95 border-red-200 text-red-800':         t.type === 'error',
+                    'bg-white/95 border-amber-200 text-amber-800':     t.type === 'warning',
+                    'bg-white/95 border-blue-200 text-blue-800':       t.type === 'info',
                 }"
             >
                 <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,7 +51,7 @@
                     <path x-show="t.type==='info'"    stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <span class="flex-1 font-medium text-[13px]" x-text="t.message"></span>
-                <button @click="remove(t.id)" class="flex-shrink-0 opacity-40 hover:opacity-80 transition-opacity">
+                <button @click="remove(t.id)" class="flex-shrink-0 opacity-40 hover:opacity-80 transition-opacity mt-0.5">
                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                     </svg>
@@ -65,6 +61,7 @@
     </div>
 
     <div class="flex h-screen">
+
         {{-- Sidebar --}}
         @if(auth()->user()->isAdminLevel())
             @include('layouts.admin-sidebar')
@@ -76,37 +73,56 @@
         <div class="flex-1 flex flex-col overflow-hidden min-w-0">
 
             {{-- Topbar --}}
-            <header class="h-12 bg-white border-b border-gray-200/80 flex items-center justify-between px-6 shrink-0">
-                <div class="flex items-center gap-2 text-[13px] text-gray-400">
-                    <span class="font-medium text-gray-700">{{ config('app.name', 'STOCK 365') }}</span>
-                    <span class="text-gray-300">/</span>
-                    <span>@yield('title')</span>
+            <header class="h-14 bg-white border-b border-gray-200/60 shadow-[0_1px_0_rgba(0,0,0,0.04)] flex items-center justify-between px-6 shrink-0">
+
+                {{-- Breadcrumb --}}
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[13px] font-bold text-gray-800 tracking-tight">STOCK<span class="text-stock-primary">365</span></span>
+                    <svg class="w-3 h-3 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="text-[13px] text-gray-400 font-medium">@yield('title')</span>
                 </div>
+
+                {{-- Right: Clock + User --}}
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-full bg-stock-primary/10 text-stock-primary flex items-center justify-center shrink-0">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-                            </svg>
+
+                    {{-- Live operational clock --}}
+                    <span id="topbar-clock"
+                          class="hidden lg:block text-[11px] font-mono text-gray-400 tabular-nums bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100 leading-none select-none"></span>
+
+                    <div class="w-px h-5 bg-gray-200"></div>
+
+                    {{-- Avatar + name --}}
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-7 h-7 rounded-full bg-stock-primary flex items-center justify-center shrink-0">
+                            <span class="text-[11px] font-bold text-white leading-none">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                         </div>
-                        <span class="text-[13px] text-gray-700 font-medium">{{ auth()->user()->name }}</span>
+                        <div class="hidden sm:block">
+                            <p class="text-[13px] font-semibold text-gray-800 leading-none">{{ auth()->user()->name }}</p>
+                        </div>
                     </div>
+
+                    <div class="w-px h-5 bg-gray-200"></div>
+
+                    {{-- Logout --}}
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit"
-                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[12px] font-medium hover:bg-red-50 hover:border-red-300 transition-colors">
-                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                title="Cerrar sesión"
+                                class="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50/70 transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                             </svg>
-                            Cerrar sesión
                         </button>
                     </form>
+
                 </div>
             </header>
 
             {{-- Page Content --}}
             <main class="flex-1 overflow-auto">
-                <div class="px-8 py-7">
+                <div class="px-8 py-8">
                     @yield('content')
                 </div>
             </main>
@@ -115,6 +131,18 @@
     </div>
 
     <script>
+    // Live operational clock
+    (function() {
+        function tick() {
+            const el = document.getElementById('topbar-clock');
+            if (el) el.textContent = new Date().toLocaleTimeString('es-CO', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            });
+        }
+        tick();
+        setInterval(tick, 1000);
+    })();
+
     function toastSystem() {
         return {
             toasts: [],

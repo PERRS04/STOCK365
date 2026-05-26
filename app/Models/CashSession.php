@@ -13,6 +13,7 @@ class CashSession extends Model
         'user_id',
         'sede_id',
         'opening_amount',
+        'inherited_from_closing_id',
         'opened_at',
         'closed_at',
         'status',
@@ -45,6 +46,16 @@ class CashSession extends Model
     public function cashClosings()
     {
         return $this->hasMany(CashClosing::class);
+    }
+
+    public function adjustments()
+    {
+        return $this->hasMany(\App\Models\CashSessionAdjustment::class);
+    }
+
+    public function inheritedFromClosing()
+    {
+        return $this->belongsTo(CashClosing::class, 'inherited_from_closing_id');
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────

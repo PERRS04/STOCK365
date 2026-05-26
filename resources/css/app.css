@@ -4,15 +4,214 @@
 
 :root {
     --color-primary: #003594;
-    --color-accent: #FFD100;
+    --color-accent:  #FFD100;
+
+    /* Motion system */
+    --ease-ui:   cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out:  cubic-bezier(0, 0, 0.2, 1);
+    --ease-in:   cubic-bezier(0.4, 0, 1, 1);
+    --dur-fast:  120ms;
+    --dur-base:  200ms;
+    --dur-slow:  300ms;
 }
 
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.11); }
+.sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* ── Skeleton shimmer ──────────────────────────────────────── */
+@keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+}
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        #f1f2f4 25%,
+        #e8eaed 50%,
+        #f1f2f4 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Soft status ring (replaces animate-ping) ──────────────── */
+@keyframes status-ring {
+    0%   { transform: scale(1);   opacity: 0.55; }
+    65%  { transform: scale(1.65); opacity: 0;    }
+    100% { transform: scale(1.65); opacity: 0;    }
+}
+.animate-status-ring {
+    animation: status-ring 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── Global base ───────────────────────────────────────────── */
+@layer base {
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+}
+
+/* ── Brand utilities ───────────────────────────────────────── */
 @layer utilities {
-    .text-stock-primary { color: #003594; }
-    .text-stock-accent  { color: #FFD100; }
-    .bg-stock-primary   { background-color: #003594; }
-    .bg-stock-accent    { background-color: #FFD100; }
-    .bg-stock-light     { background-color: #f3f4f6; }
-    .border-stock-primary { border-color: #003594; }
-    .border-stock-accent  { border-color: #FFD100; }
+    .text-stock-primary    { color: #003594; }
+    .text-stock-accent     { color: #FFD100; }
+    .bg-stock-primary      { background-color: #003594; }
+    .bg-stock-accent       { background-color: #FFD100; }
+    .bg-stock-light        { background-color: #f3f4f6; }
+    .border-stock-primary  { border-color: #003594; }
+    .border-stock-accent   { border-color: #FFD100; }
+
+    /* Sidebar deep navy gradient */
+    .sidebar-bg {
+        background: linear-gradient(180deg, #0b1628 0%, #0d1f50 38%, #003594 100%);
+    }
+
+    /* Premium card shadows — layered for depth */
+    .shadow-card {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .shadow-card-sm {
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .shadow-card-lg {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 12px 40px rgba(0,0,0,0.09);
+    }
+
+    /* Status glow (includes base shadow so they're standalone) */
+    .glow-emerald {
+        box-shadow:
+            0 0 0 1px rgba(16,185,129,0.20),
+            0 1px 3px rgba(0,0,0,0.04),
+            0 4px 24px rgba(16,185,129,0.14),
+            0 8px 48px rgba(16,185,129,0.07);
+    }
+    .glow-amber {
+        box-shadow:
+            0 0 0 1px rgba(245,158,11,0.24),
+            0 1px 3px rgba(0,0,0,0.04),
+            0 4px 24px rgba(245,158,11,0.15),
+            0 8px 48px rgba(245,158,11,0.06);
+    }
+    .glow-red {
+        box-shadow:
+            0 0 0 1px rgba(239,68,68,0.28),
+            0 1px 3px rgba(0,0,0,0.04),
+            0 4px 24px rgba(239,68,68,0.18),
+            0 8px 48px rgba(239,68,68,0.07);
+    }
+
+    /* Tabular financial numbers */
+    .num      { font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.01em; }
+    .num-tight{ font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.025em; }
+}
+
+/* ── Sidebar nav states (outside @layer so :hover always works) ── */
+.nav-active {
+    background: rgba(255,255,255,0.13);
+    color: #ffffff;
+    box-shadow: inset 3px 0 0 rgba(255,255,255,0.65);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-inactive {
+    color: rgba(186,213,255,0.56);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-inactive:hover {
+    background: rgba(255,255,255,0.072);
+    color: rgba(255,255,255,0.88);
+}
+.nav-sub-active {
+    color: #ffffff;
+    background: rgba(255,255,255,0.09);
+    box-shadow: inset 2px 0 0 rgba(255,255,255,0.42);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-sub-inactive {
+    color: rgba(173,205,255,0.46);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-sub-inactive:hover {
+    color: rgba(255,255,255,0.84);
+    background: rgba(255,255,255,0.05);
+}
+.nav-group-active {
+    background: rgba(255,255,255,0.11);
+    color: #ffffff;
+    box-shadow: inset 3px 0 0 rgba(255,255,255,0.55);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-group-inactive {
+    color: rgba(186,213,255,0.62);
+    transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.nav-group-inactive:hover {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.9);
+}
+
+/* ── Section divider ──────────────────────────────────────── */
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.055);
+    margin: 6px 12px;
+}
+
+/* ── Interactive card lift ────────────────────────────────── */
+.card-lift {
+    transition:
+        box-shadow var(--dur-base) var(--ease-ui),
+        transform  var(--dur-base) var(--ease-ui);
+}
+.card-lift:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07), 0 16px 48px rgba(0,0,0,0.07);
+    transform: translateY(-1px);
+}
+
+/* ── Table row hover ──────────────────────────────────────── */
+.table-row-hover {
+    transition: background var(--dur-fast) var(--ease-ui);
+}
+.table-row-hover:hover {
+    background: rgba(249,250,251,0.80);
+}
+
+/* ── Section label ────────────────────────────────────────── */
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+/* ── Brand selection color ────────────────────────────────── */
+::selection {
+    background: rgba(0, 53, 148, 0.10);
+    color: #003594;
+}
+
+/* ── Consistent button press microinteraction ─────────────── */
+button[type="submit"]:active:not(:disabled),
+a.btn-primary:active {
+    transform: scale(0.985);
+}
+
+/* ── Status badge dot pulse (consistent everywhere) ──────── */
+@keyframes status-dot-fade {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.45; }
+}
+
+/* ── Print: strip nav chrome for operational printing ─────── */
+@media print {
+    aside, header { display: none !important; }
+    .flex-1.flex.flex-col { overflow: visible !important; }
+    main { overflow: visible !important; }
+    .shadow-card, .shadow-card-sm, .shadow-card-lg,
+    .glow-emerald, .glow-amber, .glow-red { box-shadow: none !important; }
+    body { background: #fff !important; }
 }

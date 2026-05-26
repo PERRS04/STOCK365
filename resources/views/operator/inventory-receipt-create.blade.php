@@ -34,15 +34,145 @@
             {{-- Proveedor --}}
             <div>
                 <label class="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 mb-1.5">
-                    Proveedor / Empresa <span class="text-red-400">*</span>
+                    Proveedor <span class="text-red-400">*</span>
                 </label>
-                <input type="text" name="supplier_name" value="{{ old('supplier_name') }}"
-                       placeholder="Ej: Cervecería Nacional, Ambev Ecuador..."
-                       class="w-full px-3.5 py-2.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary focus:ring-2 focus:ring-stock-primary/20 transition @error('supplier_name') border-red-300 @enderror">
-                @error('supplier_name')
+
+                <div x-data="providerSelect()"
+                     class="relative"
+                     @click.outside="close()">
+
+                    <div class="relative">
+                        <input type="text"
+                               x-ref="input"
+                               x-model="query"
+                               @focus="isOpen = true"
+                               @input="onInput()"
+                               @keydown.escape.prevent="close()"
+                               @keydown.arrow-down.prevent="moveDown()"
+                               @keydown.arrow-up.prevent="moveUp()"
+                               @keydown.enter.prevent="confirm()"
+                               placeholder="Buscar proveedor..."
+                               autocomplete="off"
+                               class="w-full px-3.5 py-2.5 pr-9 text-[13px] border rounded-lg focus:outline-none focus:border-stock-primary focus:ring-2 focus:ring-stock-primary/20 transition @error('provider_id') border-red-300 @else border-gray-200 @enderror">
+
+                        <button type="button"
+                                x-show="selectedId"
+                                @click.prevent="clear()"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                        <svg x-show="!selectedId"
+                             class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    <input type="hidden" name="provider_id" :value="selectedId">
+
+                    <div x-show="isOpen && filtered.length > 0"
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 -translate-y-1"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         class="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                        <template x-for="(provider, i) in filtered" :key="provider.id">
+                            <button type="button"
+                                    @click="select(provider)"
+                                    :class="{
+                                        'bg-blue-50': highlightedIndex === i,
+                                        'bg-gray-50': selectedId === provider.id && highlightedIndex !== i
+                                    }"
+                                    class="w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] text-left hover:bg-gray-50 transition-colors">
+                                <span x-text="provider.nombre"
+                                      :class="selectedId === provider.id ? 'font-semibold text-gray-900' : 'text-gray-700'"></span>
+                                <svg x-show="selectedId === provider.id"
+                                     class="w-3.5 h-3.5 text-stock-primary shrink-0"
+                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </button>
+                        </template>
+                    </div>
+
+                </div>
+
+                @error('provider_id')
                     <p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>
                 @enderror
             </div>
+
+            @push('scripts')
+            <script>
+            function providerSelect() {
+                const oldId = {{ old('provider_id') ? (int) old('provider_id') : 'null' }};
+                const allProviders = @json($providers->map(fn($p) => ['id' => $p->id, 'nombre' => $p->nombre]));
+                const initial = oldId ? allProviders.find(p => p.id === oldId) : null;
+
+                return {
+                    query: initial ? initial.nombre : '',
+                    selectedId: initial ? initial.id : null,
+                    isOpen: false,
+                    highlightedIndex: -1,
+                    providers: allProviders,
+
+                    get filtered() {
+                        const q = this.query.toLowerCase().trim();
+                        if (!q) return this.providers;
+                        const sel = this.providers.find(p => p.id === this.selectedId);
+                        if (sel && sel.nombre.toLowerCase() === q) return this.providers;
+                        return this.providers.filter(p => p.nombre.toLowerCase().includes(q));
+                    },
+
+                    onInput() {
+                        this.selectedId = null;
+                        this.isOpen = true;
+                        this.highlightedIndex = -1;
+                    },
+
+                    select(provider) {
+                        this.selectedId = provider.id;
+                        this.query = provider.nombre;
+                        this.isOpen = false;
+                        this.highlightedIndex = -1;
+                    },
+
+                    clear() {
+                        this.selectedId = null;
+                        this.query = '';
+                        this.isOpen = false;
+                        this.$nextTick(() => this.$refs.input.focus());
+                    },
+
+                    close() {
+                        this.isOpen = false;
+                        if (!this.selectedId) {
+                            this.query = '';
+                        } else {
+                            const sel = this.providers.find(p => p.id === this.selectedId);
+                            if (sel) this.query = sel.nombre;
+                        }
+                    },
+
+                    moveDown() {
+                        if (!this.isOpen) { this.isOpen = true; return; }
+                        if (this.highlightedIndex < this.filtered.length - 1) this.highlightedIndex++;
+                    },
+
+                    moveUp() {
+                        if (this.highlightedIndex > 0) this.highlightedIndex--;
+                    },
+
+                    confirm() {
+                        if (this.highlightedIndex >= 0 && this.filtered[this.highlightedIndex]) {
+                            this.select(this.filtered[this.highlightedIndex]);
+                        }
+                    }
+                }
+            }
+            </script>
+            @endpush
 
             {{-- Monto --}}
             <div>

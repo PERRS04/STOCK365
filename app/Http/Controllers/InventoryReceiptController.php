@@ -37,12 +37,13 @@ class InventoryReceiptController extends Controller
         }
 
         $validated = $request->validate([
-            'supplier_name' => 'required|string|max:255',
-            'provider_id'   => 'nullable|exists:providers,id',
+            'provider_id'   => 'required|exists:providers,id',
             'monto_pagado'  => 'required|numeric|min:0.01',
             'observaciones' => 'nullable|string|max:1000',
             'invoice_file'  => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
         ]);
+
+        $provider = \App\Models\Provider::find($validated['provider_id']);
 
         $invoicePath = null;
         if ($request->hasFile('invoice_file')) {
@@ -52,8 +53,8 @@ class InventoryReceiptController extends Controller
         $receipt = InventoryReceipt::create([
             'sede_id'       => auth()->user()->sede_id,
             'user_id'       => auth()->id(),
-            'provider_id'   => $validated['provider_id'] ?? null,
-            'supplier_name' => $validated['supplier_name'],
+            'provider_id'   => $validated['provider_id'],
+            'supplier_name' => $provider->nombre,
             'monto_pagado'  => $validated['monto_pagado'],
             'observaciones' => $validated['observaciones'] ?? null,
             'invoice_path'  => $invoicePath,
@@ -62,7 +63,7 @@ class InventoryReceiptController extends Controller
 
         ActivityLogger::log(
             'recepcion.registrada',
-            "Recepción registrada: {$validated['supplier_name']} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : ""),
+            "Recepción registrada: {$provider->nombre} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : ""),
             $receipt
         );
 

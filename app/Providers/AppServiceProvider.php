@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
 
@@ -15,6 +16,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Enforce UTF-8 for all mbstring operations across the entire application
+        mb_internal_encoding('UTF-8');
+        mb_regex_encoding('UTF-8');
+
         Paginator::useBootstrap();
 
         // Boss role bypasses every permission check — must run before Spatie's gate callback.

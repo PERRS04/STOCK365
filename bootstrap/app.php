@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Ensure all HTML responses carry the explicit UTF-8 charset header
+        $middleware->web(\App\Http\Middleware\EnforceUtf8::class);
+
         $middleware->alias([
             'boss'          => \App\Http\Middleware\IsBoss::class,
             'operator'      => \App\Http\Middleware\IsOperator::class,

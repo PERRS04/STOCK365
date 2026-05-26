@@ -39,6 +39,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
     Route::get('/caja/estado', [CashSessionController::class, 'status'])->name('cash-session.status');
     Route::get('/caja/historial', [CashSessionController::class, 'index'])->name('cash-sessions.index');
     Route::patch('/caja/{cashSession}/forzar-cierre', [CashSessionController::class, 'forceClose'])->name('cash-sessions.force-close');
+    Route::post('/caja/{cashSession}/ajustar-apertura', [CashSessionController::class, 'adjustOpening'])->name('cash-sessions.adjust-opening');
 
     // ── Point of Sale & Sales (operators + supervisors + boss) ──────────────
     Route::get('/pos', [SaleController::class, 'create'])->middleware('cash.session')->name('pos.create');

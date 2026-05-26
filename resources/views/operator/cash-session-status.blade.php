@@ -34,7 +34,10 @@
         {{-- Status banner --}}
         @if($session->isOpen())
             <div class="mb-5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="relative flex h-2 w-2 shrink-0">
+                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
                 <span class="text-[13px] font-semibold text-emerald-700">Caja abierta</span>
                 <span class="ml-auto text-[12px] text-emerald-600">Desde {{ $session->opened_at->format('H:i') }}</span>
             </div>
@@ -68,11 +71,24 @@
             <h3 class="text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-3">Detalle de sesión</h3>
             <dl class="space-y-2.5">
                 <div class="flex justify-between">
-                    <dt class="text-[13px] text-gray-500">Monto inicial</dt>
+                    <dt class="text-[13px] text-gray-500">
+                        Apertura
+                        @if($session->inheritedFromClosing)
+                            <span class="ml-1 text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
+                                heredada
+                            </span>
+                        @endif
+                    </dt>
                     <dd class="text-[13px] font-semibold text-gray-800">{{ formatCurrency($session->opening_amount) }}</dd>
                 </div>
+                @if($session->inheritedFromClosing)
                 <div class="flex justify-between">
-                    <dt class="text-[13px] text-gray-500">Apertura</dt>
+                    <dt class="text-[13px] text-gray-500">Cierre origen</dt>
+                    <dd class="text-[13px] text-gray-600">{{ $session->inheritedFromClosing->fecha_cierre->format('d/m/Y') }}</dd>
+                </div>
+                @endif
+                <div class="flex justify-between">
+                    <dt class="text-[13px] text-gray-500">Hora de apertura</dt>
                     <dd class="text-[13px] font-medium text-gray-800">{{ $session->opened_at->format('d/m/Y H:i') }}</dd>
                 </div>
                 @if($session->notes)
@@ -81,8 +97,73 @@
                     <dd class="text-[13px] font-medium text-gray-800 text-right max-w-xs">{{ $session->notes }}</dd>
                 </div>
                 @endif
+                @if($session->adjustments->isNotEmpty())
+                <div class="pt-1 border-t border-gray-100">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-500 mb-1.5">Ajustes aplicados</p>
+                    @foreach($session->adjustments as $adj)
+                    <div class="text-[12px] text-gray-500 flex justify-between items-start py-0.5">
+                        <span class="truncate max-w-[200px]">{{ $adj->motivo }}</span>
+                        <span class="font-medium text-gray-700 ml-2 shrink-0">
+                            ${{ number_format($adj->monto_anterior, 2) }} → ${{ number_format($adj->monto_nuevo, 2) }}
+                        </span>
+                    </div>
+                    @endforeach
+                </div>
+                @endif
             </dl>
         </div>
+
+        {{-- Supervisor: adjust opening amount --}}
+        @if(auth()->user()->isAdminLevel() && $session->isOpen())
+        <div x-data="{ open: false }" class="bg-white rounded-xl border border-amber-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] mb-5 overflow-hidden">
+            <button @click="open = !open" type="button"
+                class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-amber-50 transition">
+                <div class="flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    <span class="text-[13px] font-semibold text-amber-700">Ajustar apertura de caja</span>
+                </div>
+                <svg class="w-4 h-4 text-amber-400 transition-transform" :class="open && 'rotate-180'"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="open" x-transition class="px-5 pb-5 border-t border-amber-100 pt-4 space-y-3">
+                <p class="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                    Solo supervisor/administrador · El ajuste queda auditado permanentemente.
+                </p>
+                <form action="{{ route('cash-sessions.adjust-opening', $session) }}" method="POST" class="space-y-3">
+                    @csrf
+                    <div>
+                        <label class="block text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-500 mb-1">
+                            Nuevo monto de apertura <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                            <input type="number" name="monto_nuevo" step="0.01" min="0" required
+                                   placeholder="{{ number_format($session->opening_amount, 2) }}"
+                                   class="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-[15px] font-semibold
+                                          focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-500 mb-1">
+                            Motivo del ajuste <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="motivo" rows="2" required minlength="5" maxlength="500"
+                                  placeholder="Explica la razón del ajuste…"
+                                  class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-[13px]
+                                         focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition resize-none"></textarea>
+                    </div>
+                    <button type="submit"
+                            class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[13px] rounded-lg transition">
+                        Aplicar ajuste
+                    </button>
+                </form>
+            </div>
+        </div>
+        @endif
 
         {{-- Actions --}}
         @if($session->isOpen())
