@@ -45,10 +45,10 @@ class LiveCashBoxService
             ->sum('amount');
 
         // ── Approved courtesies (value of products given free) ────────────────
-        $valorCortesias = (float) CourtesyTransaction::where('sede_id', $sedeId)
-            ->where('user_id', $userId)
-            ->where('status', 'aprobado')
-            ->where('created_at', '>=', $openedAt)
+        $valorCortesias = (float) CourtesyTransaction::where('courtesy_transactions.sede_id', $sedeId)
+            ->where('courtesy_transactions.user_id', $userId)
+            ->where('courtesy_transactions.status', 'aprobado')
+            ->where('courtesy_transactions.created_at', '>=', $openedAt)
             ->join('products', 'products.id', '=', 'courtesy_transactions.product_id')
             ->sum(DB::raw('courtesy_transactions.quantity * products.precio_venta'));
 
@@ -57,10 +57,10 @@ class LiveCashBoxService
             ->where('status', 'pendiente')
             ->count();
 
-        $pendingCortesias = CourtesyTransaction::where('sede_id', $sedeId)
-            ->where('user_id', $userId)
-            ->where('status', 'pendiente')
-            ->where('created_at', '>=', $openedAt)
+        $pendingCortesias = CourtesyTransaction::where('courtesy_transactions.sede_id', $sedeId)
+            ->where('courtesy_transactions.user_id', $userId)
+            ->where('courtesy_transactions.status', 'pendiente')
+            ->where('courtesy_transactions.created_at', '>=', $openedAt)
             ->count();
 
         // ── Last approved outflow ─────────────────────────────────────────────
