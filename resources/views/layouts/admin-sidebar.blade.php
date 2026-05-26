@@ -5,7 +5,7 @@
     $activeSessionsCount      = \App\Models\CashSession::whereIn('status', ['open', 'pending_closing'])->count();
     $pendingReceiptsCount     = \App\Models\InventoryReceipt::where('estado', 'pendiente')->count();
     $pendingTransfersCount    = \App\Models\StockTransfer::where('estado', 'pendiente')->count();
-    $pendingCourtesiesCount   = 0; {{-- módulo desactivado temporalmente --}}
+    $pendingCourtesiesCount   = 0; // módulo desactivado temporalmente
     $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')->count();
 
     $invOpen      = request()->routeIs('inventory.*', 'products.*', 'kardex.*', 'transfers.*', 'inventory.bulk-load');
