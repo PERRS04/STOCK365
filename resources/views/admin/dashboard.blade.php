@@ -71,61 +71,93 @@
 @endif
 
 {{-- ══════════════════════════════════════════════════════
-     KPI STRIP
+     KPI STRIP — COMMAND CENTER
 ══════════════════════════════════════════════════════ --}}
 <div class="bg-white border border-gray-200/60 rounded-2xl shadow-card overflow-hidden">
+    {{-- Brand gradient accent line --}}
+    <div class="h-[3px] bg-gradient-to-r from-stock-primary via-blue-500 to-indigo-400"></div>
+
     <div class="grid {{ $isBoss ? 'grid-cols-7' : 'grid-cols-6' }} divide-x divide-gray-100/80">
 
-        <div class="px-6 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Ventas Hoy</p>
-            <p class="text-[24px] font-bold text-gray-900 leading-none num">${{ number_format($totalSalesToday, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-1.5">{{ $transactionCount }} transacciones</p>
+        {{-- HERO: Ventas Hoy --}}
+        <div class="px-6 py-5 relative">
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ventas Hoy</p>
+            <p class="text-[28px] font-extrabold text-gray-900 leading-none tabular-nums tracking-tight">${{ number_format($totalSalesToday, 0, '.', ',') }}</p>
+            <p class="text-[11px] text-gray-400 mt-2 tabular-nums">{{ $transactionCount }} transacciones</p>
         </div>
 
+        {{-- Ventas Mes --}}
         <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Ventas Mes</p>
-            <p class="text-[20px] font-bold text-gray-900 leading-none num">${{ number_format($totalSalesMonth, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-1.5">{{ now()->locale('es')->isoFormat('MMMM') }}</p>
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ventas Mes</p>
+            <p class="text-[20px] font-bold text-gray-900 leading-none tabular-nums">${{ number_format($totalSalesMonth, 0, '.', ',') }}</p>
+            <p class="text-[11px] text-gray-400 mt-2">{{ now()->locale('es')->isoFormat('MMMM') }}</p>
         </div>
 
+        {{-- Utilidad (boss only) --}}
         @if($isBoss)
         <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Utilidad</p>
-            <p class="text-[20px] font-bold leading-none num {{ $utilidadHoy > 0 ? 'text-emerald-600' : 'text-gray-700' }}">${{ number_format($utilidadHoy, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-1.5">Margen bruto</p>
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Utilidad</p>
+            <p class="text-[20px] font-bold leading-none tabular-nums {{ $utilidadHoy > 0 ? 'text-emerald-600' : 'text-gray-700' }}">${{ number_format($utilidadHoy, 0, '.', ',') }}</p>
+            <p class="text-[11px] text-gray-400 mt-2">Margen bruto</p>
         </div>
         @endif
 
+        {{-- Ticket Promedio --}}
         <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Ticket Prom.</p>
-            <p class="text-[20px] font-bold text-gray-900 leading-none num">${{ number_format($avgTicket, 2) }}</p>
-            <p class="text-[11px] text-gray-400 mt-1.5">Por transacción</p>
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ticket Prom.</p>
+            <p class="text-[20px] font-bold text-gray-900 leading-none tabular-nums">${{ number_format($avgTicket, 2) }}</p>
+            <p class="text-[11px] text-gray-400 mt-2">Por transacción</p>
         </div>
 
-        <div class="px-5 py-5 {{ $pendingClosings > 0 ? 'bg-amber-50/50' : '' }}">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Cierres</p>
-            <p class="text-[20px] font-bold leading-none num {{ $pendingClosings > 0 ? 'text-amber-500' : 'text-gray-300' }}">{{ $pendingClosings }}</p>
+        {{-- Cierres Pendientes --}}
+        <div class="px-5 py-5 transition-colors {{ $pendingClosings > 0 ? 'bg-amber-50/60' : '' }}">
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] {{ $pendingClosings > 0 ? 'text-amber-500' : 'text-gray-400' }} mb-2.5">Cierres</p>
+            <p class="text-[20px] font-bold leading-none tabular-nums {{ $pendingClosings > 0 ? 'text-amber-500' : 'text-gray-300' }}">{{ $pendingClosings }}</p>
             @if($pendingClosings > 0)
-                <a href="{{ route('cash-closings.pending') }}" class="text-[11px] text-amber-600 hover:underline mt-1.5 inline-block font-medium">Revisar →</a>
+                <a href="{{ route('cash-closings.pending') }}" class="text-[11px] text-amber-600 hover:underline mt-2 inline-flex items-center gap-0.5 font-semibold">
+                    Revisar
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
             @else
-                <p class="text-[11px] text-gray-400 mt-1.5">Al día</p>
+                <p class="text-[11px] text-emerald-500 font-semibold mt-2">Al día</p>
             @endif
         </div>
 
-        <div class="px-5 py-5 {{ $alertCount > 0 ? 'bg-red-50/40' : '' }}">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Alertas</p>
-            <p class="text-[20px] font-bold leading-none num {{ $alertCount > 0 ? 'text-red-500' : 'text-gray-300' }}">{{ $alertCount }}</p>
+        {{-- Alertas de Stock --}}
+        <div class="px-5 py-5 transition-colors {{ $alertCount > 0 ? 'bg-red-50/40' : '' }}">
+            <div class="flex items-center gap-1.5 mb-2.5">
+                @if($alertCount > 0)
+                <span class="relative flex h-[5px] w-[5px] shrink-0">
+                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-red-400"></span>
+                    <span class="relative inline-flex rounded-full h-[5px] w-[5px] bg-red-500"></span>
+                </span>
+                @endif
+                <p class="text-[9px] font-bold uppercase tracking-[0.15em] {{ $alertCount > 0 ? 'text-red-500' : 'text-gray-400' }}">Alertas</p>
+            </div>
+            <p class="text-[20px] font-bold leading-none tabular-nums {{ $alertCount > 0 ? 'text-red-500' : 'text-gray-300' }}">{{ $alertCount }}</p>
             @if($alertCount > 0)
-                <a href="{{ route('inventory.index') }}" class="text-[11px] text-red-500 hover:underline mt-1.5 inline-block font-medium">Ver stock →</a>
+                <a href="{{ route('inventory.index') }}" class="text-[11px] text-red-500 hover:underline mt-2 inline-flex items-center gap-0.5 font-semibold">
+                    Ver stock
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
             @else
-                <p class="text-[11px] text-gray-400 mt-1.5">Normal</p>
+                <p class="text-[11px] text-emerald-500 font-semibold mt-2">Normal</p>
             @endif
         </div>
 
+        {{-- Cajas Activas --}}
         <div class="px-5 py-5 {{ $activeSessionsCount > 0 ? 'bg-emerald-50/30' : '' }}">
-            <p class="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400 mb-2">Cajas</p>
-            <p class="text-[20px] font-bold leading-none num {{ $activeSessionsCount > 0 ? 'text-emerald-600' : 'text-gray-300' }}">{{ $activeSessionsCount }}</p>
-            <a href="{{ route('cash-sessions.index') }}" class="text-[11px] text-gray-400 hover:text-stock-primary mt-1.5 inline-block transition-colors">Ver sesiones →</a>
+            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Cajas</p>
+            <div class="flex items-center gap-2">
+                @if($activeSessionsCount > 0)
+                <span class="relative flex h-[7px] w-[7px] shrink-0">
+                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                    <span class="relative inline-flex rounded-full h-[7px] w-[7px] bg-emerald-500"></span>
+                </span>
+                @endif
+                <p class="text-[20px] font-bold leading-none tabular-nums {{ $activeSessionsCount > 0 ? 'text-emerald-600' : 'text-gray-300' }}">{{ $activeSessionsCount }}</p>
+            </div>
+            <a href="{{ route('cash-sessions.index') }}" class="text-[11px] text-gray-400 hover:text-stock-primary mt-2 inline-block transition-colors">Ver sesiones →</a>
         </div>
 
     </div>
@@ -162,7 +194,7 @@
                 @if($alertCount > 0)
                 <span class="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-full">{{ $alertCount }}</span>
                 @else
-                <span class="text-[10px] font-medium text-emerald-600">Normal</span>
+                <span class="text-[10px] font-semibold text-emerald-600">Normal</span>
                 @endif
             </div>
             <div class="divide-y divide-gray-50/80 overflow-y-auto flex-1 max-h-[180px]">
@@ -206,7 +238,7 @@
                 <a href="{{ route('cash-closings.pending') }}"
                    class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors">{{ $pendingClosings }}</a>
                 @else
-                <span class="text-[10px] font-medium text-emerald-600">Al día</span>
+                <span class="text-[10px] font-semibold text-emerald-600">Al día</span>
                 @endif
             </div>
             @forelse($pendingCashClosings as $closing)
@@ -216,11 +248,11 @@
                     <p class="text-[11px] text-gray-400 mt-0.5">{{ $closing->user?->name ?? '—' }} · {{ \Carbon\Carbon::parse($closing->fecha_cierre)->format('H:i') }}</p>
                 </div>
                 <div class="text-right ml-3 shrink-0">
-                    <p class="text-[13px] font-bold text-gray-800 num">${{ number_format($closing->total_sistema, 0) }}</p>
+                    <p class="text-[13px] font-bold text-gray-800 tabular-nums">${{ number_format($closing->total_sistema, 0) }}</p>
                     @if($closing->diferencia != 0)
-                        <p class="text-[11px] font-semibold num {{ $closing->diferencia < 0 ? 'text-red-500' : 'text-emerald-500' }}">{{ $closing->diferencia > 0 ? '+' : '' }}${{ number_format(abs($closing->diferencia), 2) }}</p>
+                        <p class="text-[11px] font-semibold tabular-nums {{ $closing->diferencia < 0 ? 'text-red-500' : 'text-emerald-500' }}">{{ $closing->diferencia > 0 ? '+' : '' }}${{ number_format(abs($closing->diferencia), 2) }}</p>
                     @else
-                        <p class="text-[11px] text-emerald-500 font-medium">Exacto</p>
+                        <p class="text-[11px] text-emerald-500 font-semibold">Exacto</p>
                     @endif
                 </div>
             </div>
@@ -236,7 +268,7 @@
 </div>
 
 {{-- ══════════════════════════════════════════════════════
-     BOTTOM ROW (3:2) — sede grid + top products + activity
+     BOTTOM ROW (3:2) — sede grid + top products + live feed
 ══════════════════════════════════════════════════════ --}}
 <div class="grid grid-cols-5 gap-5">
 
@@ -284,11 +316,11 @@
                     <div class="flex items-end justify-between">
                         <div>
                             <p class="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Ventas</p>
-                            <p class="text-[20px] font-bold text-gray-900 num leading-none">${{ number_format($s['ventas_hoy'], 0) }}</p>
+                            <p class="text-[20px] font-bold text-gray-900 tabular-nums leading-none">${{ number_format($s['ventas_hoy'], 0) }}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Tx</p>
-                            <p class="text-[20px] font-bold text-gray-500 num leading-none">{{ $s['transacciones'] }}</p>
+                            <p class="text-[20px] font-bold text-gray-500 tabular-nums leading-none">{{ $s['transacciones'] }}</p>
                         </div>
                     </div>
                 </div>
@@ -297,7 +329,7 @@
         </div>
     </div>
 
-    {{-- Right column: top products + activity (2/5) --}}
+    {{-- Right column: top products + live ops feed (2/5) --}}
     <div class="col-span-2 flex flex-col gap-4">
 
         {{-- Top 5 products --}}
@@ -312,9 +344,9 @@
                     {{ $i === 0 ? 'text-stock-accent' : ($i < 3 ? 'text-gray-400' : 'text-gray-300') }}">{{ $i + 1 }}</span>
                 <div class="flex-1 min-w-0">
                     <p class="text-[12px] font-semibold text-gray-800 truncate">{{ $product->nombre }}</p>
-                    <p class="text-[10px] text-gray-400 mt-0.5">{{ number_format($product->unidades) }} uds.</p>
+                    <p class="text-[10px] text-gray-400 mt-0.5 tabular-nums">{{ number_format($product->unidades) }} uds.</p>
                 </div>
-                <p class="text-[12px] font-bold text-emerald-600 num shrink-0">${{ number_format($product->ingresos, 0) }}</p>
+                <p class="text-[12px] font-bold text-emerald-600 tabular-nums shrink-0">${{ number_format($product->ingresos, 0) }}</p>
             </div>
             @empty
             <div class="px-5 py-8 text-center">
@@ -323,38 +355,119 @@
             @endforelse
         </div>
 
-        {{-- Activity feed --}}
+        {{-- ── LIVE OPERATIONAL FEED ──────────────────────────────
+             Bloomberg-style priority feed replacing plain activity log
+        ──────────────────────────────────────────────────────── --}}
         <div class="bg-white border border-gray-200/60 rounded-2xl shadow-card flex-1 flex flex-col overflow-hidden">
+
+            {{-- Feed header --}}
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
-                <h3 class="text-[13px] font-semibold text-gray-800">Actividad Reciente</h3>
+                <div class="flex items-center gap-2">
+                    <span class="relative flex h-1.5 w-1.5 shrink-0">
+                        <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <h3 class="text-[13px] font-semibold text-gray-800">Feed Operacional</h3>
+                </div>
                 <a href="{{ route('activity-logs.index') }}" class="text-[11px] font-medium text-stock-primary hover:underline">Ver todo →</a>
             </div>
-            <div class="divide-y divide-gray-50/80 overflow-y-auto flex-1">
+
+            {{-- Feed entries --}}
+            <div class="overflow-y-auto flex-1 divide-y divide-gray-50">
                 @forelse($recentActivity as $log)
                 @php
-                    $actType = str_contains($log->action, 'venta')    ? 'emerald'
-                        : (str_contains($log->action, 'cierre')        ? 'amber'
-                        : (str_contains($log->action, 'caja')          ? 'teal'
-                        : (str_contains($log->action, 'inventario') ||
-                           str_contains($log->action, 'recepcion')     ? 'indigo' : 'gray')));
-                    $dotClass = [
-                        'emerald' => 'bg-emerald-400',
-                        'amber'   => 'bg-amber-400',
-                        'teal'    => 'bg-teal-400',
-                        'indigo'  => 'bg-indigo-400',
-                        'gray'    => 'bg-gray-300',
-                    ][$actType];
+                    $action = strtolower($log->action ?? '');
+
+                    // Priority detection
+                    $isHighPriority = str_contains($action, 'alerta')   ||
+                                      str_contains($action, 'critico')  ||
+                                      str_contains($action, 'faltante');
+                    $isMedPriority  = str_contains($action, 'cierre')   ||
+                                      str_contains($action, 'recepcion')||
+                                      str_contains($action, 'inventario')||
+                                      str_contains($action, 'aprobacion');
+                    $priority = $isHighPriority ? 'high' : ($isMedPriority ? 'medium' : 'low');
+
+                    // Action category
+                    $isVenta     = str_contains($action, 'venta');
+                    $isCierre    = str_contains($action, 'cierre');
+                    $isCaja      = str_contains($action, 'caja');
+                    $isInventory = str_contains($action, 'inventario') || str_contains($action, 'recepcion');
+                    $isAlert     = str_contains($action, 'alerta');
+
+                    // Icon scheme per category
+                    if ($isAlert) {
+                        $iconBg   = 'bg-red-50';
+                        $iconClr  = 'text-red-500';
+                        $iconPath = 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
+                    } elseif ($isVenta) {
+                        $iconBg   = 'bg-emerald-50';
+                        $iconClr  = 'text-emerald-600';
+                        $iconPath = 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
+                    } elseif ($isCierre) {
+                        $iconBg   = 'bg-amber-50';
+                        $iconClr  = 'text-amber-600';
+                        $iconPath = 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z';
+                    } elseif ($isInventory) {
+                        $iconBg   = 'bg-indigo-50';
+                        $iconClr  = 'text-indigo-600';
+                        $iconPath = 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4';
+                    } elseif ($isCaja) {
+                        $iconBg   = 'bg-blue-50';
+                        $iconClr  = 'text-blue-600';
+                        $iconPath = 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z';
+                    } else {
+                        $iconBg   = 'bg-gray-100';
+                        $iconClr  = 'text-gray-400';
+                        $iconPath = 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+                    }
+
+                    // Priority left bar color
+                    $priorityBar = match($priority) {
+                        'high'   => 'bg-red-500',
+                        'medium' => 'bg-amber-400',
+                        default  => 'bg-transparent',
+                    };
                 @endphp
-                <div class="flex items-start gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors">
-                    <div class="mt-[6px] w-[6px] h-[6px] rounded-full shrink-0 {{ $dotClass }}"></div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[12px] text-gray-700 leading-snug">{{ $log->description }}</p>
-                        <p class="text-[10px] text-gray-400 mt-0.5 font-medium">{{ $log->user_name }} · {{ $log->created_at->diffForHumans() }}</p>
+                <div class="flex items-stretch hover:bg-gray-50/60 transition-colors animate-feed-in">
+                    {{-- Priority bar (3px left accent) --}}
+                    <div class="w-[3px] shrink-0 {{ $priorityBar }}"></div>
+
+                    {{-- Content --}}
+                    <div class="flex items-start gap-3 px-4 py-3 flex-1 min-w-0">
+                        {{-- Semantic icon circle --}}
+                        <div class="w-7 h-7 rounded-lg {{ $iconBg }} {{ $iconClr }} flex items-center justify-center shrink-0 mt-[1px]">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $iconPath }}"/>
+                            </svg>
+                        </div>
+
+                        {{-- Description + meta --}}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[12px] text-gray-700 leading-snug font-medium">{{ $log->description }}</p>
+                            <p class="text-[10px] text-gray-400 mt-0.5 tabular-nums">
+                                {{ $log->user_name }}
+                                <span class="text-gray-300 mx-0.5">·</span>
+                                {{ $log->created_at->diffForHumans() }}
+                            </p>
+                        </div>
+
+                        {{-- Priority badge (only high/medium) --}}
+                        @if($priority === 'high')
+                            <span class="self-start mt-1 text-[8px] font-bold uppercase tracking-[0.1em] bg-red-100 text-red-600 px-1.5 py-[2px] rounded-md shrink-0 leading-none">HIGH</span>
+                        @elseif($priority === 'medium')
+                            <span class="self-start mt-1 text-[8px] font-bold uppercase tracking-[0.1em] bg-amber-50 text-amber-600 border border-amber-200/60 px-1.5 py-[2px] rounded-md shrink-0 leading-none">MED</span>
+                        @endif
                     </div>
                 </div>
                 @empty
-                <div class="px-5 py-8 text-center">
-                    <p class="text-[12px] text-gray-400">Sin actividad reciente</p>
+                <div class="flex flex-col items-center justify-center px-5 py-10 text-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <p class="text-[12px] text-gray-400 font-medium">Sin actividad reciente</p>
                 </div>
                 @endforelse
             </div>
