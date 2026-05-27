@@ -73,37 +73,67 @@
         <div class="flex-1 flex flex-col overflow-hidden min-w-0">
 
             {{-- Topbar --}}
-            <header class="h-14 bg-white border-b border-gray-200/60 shadow-[0_1px_0_rgba(0,0,0,0.04)] flex items-center justify-between px-6 shrink-0">
+            @php
+                $topbarUser  = auth()->user();
+                $topbarRole  = $topbarUser->role ?? 'operador';
+                $topbarSede  = $topbarUser->sede?->nombre;
+                $roleBadgeClass = match($topbarRole) {
+                    'boss'       => 'bg-[#003594] text-white border-[#002470]',
+                    'supervisor' => 'bg-blue-100 text-blue-700 border-blue-200',
+                    default      => 'bg-gray-100 text-gray-600 border-gray-200',
+                };
+                $roleLabel = match($topbarRole) {
+                    'boss'       => 'BOSS',
+                    'supervisor' => 'SUPER',
+                    default      => 'OPR',
+                };
+            @endphp
+            <header class="h-14 bg-white border-b border-gray-200/60 shadow-[0_1px_0_rgba(0,0,0,0.04)] flex items-center justify-between px-6 shrink-0 gap-4">
 
-                {{-- Breadcrumb --}}
-                <div class="flex items-center gap-1.5">
-                    <span class="text-[13px] font-bold text-gray-800 tracking-tight">STOCK<span class="text-stock-primary">365</span></span>
+                {{-- Left: Brand + Page title --}}
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-[13px] font-bold text-gray-800 tracking-tight shrink-0">STOCK<span class="text-stock-primary">365</span></span>
                     <svg class="w-3 h-3 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
                     </svg>
-                    <span class="text-[13px] text-gray-400 font-medium">@yield('title')</span>
+                    <span class="text-[13px] text-gray-400 font-medium truncate">@yield('title')</span>
                 </div>
 
-                {{-- Right: Clock + User --}}
-                <div class="flex items-center gap-3">
+                {{-- Center: Sede context (visible on lg+) --}}
+                @if($topbarSede)
+                <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                    <span class="text-[11px] font-semibold text-gray-600 leading-none">{{ $topbarSede }}</span>
+                </div>
+                @endif
+
+                {{-- Right: Clock + Role + User + Logout --}}
+                <div class="flex items-center gap-2.5 shrink-0">
 
                     {{-- Live operational clock --}}
                     <span id="topbar-clock"
-                          class="hidden lg:block text-[11px] font-mono text-gray-400 tabular-nums bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100 leading-none select-none"></span>
+                          class="hidden xl:block text-[11px] font-mono text-gray-400 tabular-nums bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100 leading-none select-none"></span>
 
-                    <div class="w-px h-5 bg-gray-200"></div>
+                    <div class="hidden xl:block w-px h-5 bg-gray-100"></div>
+
+                    {{-- Role badge --}}
+                    <span class="hidden sm:inline-flex items-center text-[9px] font-bold tracking-[0.10em] uppercase px-2 py-[3px] rounded-md border {{ $roleBadgeClass }}">
+                        {{ $roleLabel }}
+                    </span>
+
+                    <div class="w-px h-5 bg-gray-100"></div>
 
                     {{-- Avatar + name --}}
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full bg-stock-primary flex items-center justify-center shrink-0">
-                            <span class="text-[11px] font-bold text-white leading-none">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-stock-primary flex items-center justify-center shrink-0 ring-2 ring-white">
+                            <span class="text-[11px] font-bold text-white leading-none">{{ strtoupper(substr($topbarUser->name, 0, 1)) }}</span>
                         </div>
                         <div class="hidden sm:block">
-                            <p class="text-[13px] font-semibold text-gray-800 leading-none">{{ auth()->user()->name }}</p>
+                            <p class="text-[12px] font-semibold text-gray-800 leading-none">{{ $topbarUser->name }}</p>
                         </div>
                     </div>
 
-                    <div class="w-px h-5 bg-gray-200"></div>
+                    <div class="w-px h-5 bg-gray-100"></div>
 
                     {{-- Logout --}}
                     <form method="POST" action="{{ route('logout') }}">
