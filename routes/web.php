@@ -23,6 +23,7 @@ use App\Http\Controllers\CourtesyController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\SedePaymentController;
+use App\Http\Controllers\OperationalLockController;
 
 Route::get('/', function () {
     return auth()->check()
@@ -30,9 +31,14 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified'])->group(function () {
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'op.guard'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // ── Operational Integrity Lock Screen ─────────────────────────────────────
+    // NOTE: these routes are in SAFE_ROUTES — the op.guard skips them to prevent loops
+    Route::get('/operational-lock',          [OperationalLockController::class, 'show'])     ->name('operational.lock');
+    Route::post('/operational-lock/escalate',[OperationalLockController::class, 'escalate']) ->name('operational.lock.escalate');
 
     // ── Cash Sessions (operators) ─────────────────────────────────────────────
     Route::get('/caja/abrir',  [CashSessionController::class, 'create'])->name('cash-session.create');

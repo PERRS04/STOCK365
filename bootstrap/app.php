@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'boss'          => \App\Http\Middleware\IsBoss::class,
             'operator'      => \App\Http\Middleware\IsOperator::class,
             'cash.session'  => \App\Http\Middleware\EnsureCashSessionOpen::class,
+            'op.guard'      => \App\Http\Middleware\OperationalIntegrityGuard::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
