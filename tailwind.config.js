@@ -105,5 +105,19 @@ export default {
         },
     },
 
+    safelist: [
+        // Design-system primitives defined in @layer components — protect from purging
+        'btn', 'btn-sm', 'btn-lg',
+        'btn-primary', 'btn-secondary', 'btn-ghost',
+        'btn-success', 'btn-danger', 'btn-warning',
+        'input', 'input-sm', 'form-label',
+        'metric-value', 'metric-value-sm', 'metric-label',
+        'page-title', 'page-subtitle',
+        'shadow-card', 'shadow-card-sm', 'shadow-card-lg',
+        'glow-emerald', 'glow-amber', 'glow-red',
+        'empty-state', 'empty-state-icon', 'empty-state-title', 'empty-state-desc',
+        'animate-status-ring', 'skeleton',
+    ],
+
     plugins: [forms, typography],
 };

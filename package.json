@@ -3,7 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "rebuild": "node scripts/rebuild.mjs",
+    "validate": "node scripts/validate-build.mjs"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",

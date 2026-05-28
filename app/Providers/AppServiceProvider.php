@@ -20,7 +20,9 @@ class AppServiceProvider extends ServiceProvider
         mb_internal_encoding('UTF-8');
         mb_regex_encoding('UTF-8');
 
-        Paginator::useBootstrap();
+        // Use the STOCK365 premium pagination component (resources/views/vendor/pagination/tailwind.blade.php)
+        Paginator::defaultView('vendor.pagination.tailwind');
+        Paginator::defaultSimpleView('vendor.pagination.tailwind');
 
         // Boss role bypasses every permission check — must run before Spatie's gate callback.
         Gate::before(function ($user, $ability) {

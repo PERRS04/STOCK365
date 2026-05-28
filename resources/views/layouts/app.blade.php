@@ -19,6 +19,7 @@
     </style>
 </head>
 <body class="font-sans antialiased bg-[#f0f2f8]">
+    <x-local-env-badge />
 
     {{-- Toast container --}}
     <div
