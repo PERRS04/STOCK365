@@ -268,68 +268,16 @@
 </div>
 
 {{-- ══════════════════════════════════════════════════════
-     BOTTOM ROW (3:2) — sede grid + top products + live feed
+     BOTTOM ROW (3:2) — operational status map + top products + alert center
 ══════════════════════════════════════════════════════ --}}
 <div class="grid grid-cols-5 gap-5">
 
-    {{-- Sede performance grid (3/5) --}}
+    {{-- Realtime Operational Status Map (3/5) --}}
     <div class="col-span-3">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="section-label">Rendimiento por Sede · Hoy</h2>
-            @can('users.manage')
-            <a href="{{ route('sedes.index') }}" class="text-[11px] font-medium text-stock-primary hover:underline">Gestionar →</a>
-            @endcan
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-            @foreach($sedeStats as $s)
-            @php
-                $hasAlerts   = $s['alertas'] > 0;
-                $hasPending  = $s['cierres_pend'] > 0;
-                $isClean     = !$hasAlerts && !$hasPending;
-                $cardBorder  = $hasAlerts ? 'border-red-200/70' : ($hasPending ? 'border-amber-200/70' : 'border-gray-200/60');
-                $accentLine  = $hasAlerts
-                    ? 'bg-gradient-to-r from-red-400 to-rose-400'
-                    : ($hasPending
-                        ? 'bg-gradient-to-r from-amber-400 to-orange-400'
-                        : 'bg-gradient-to-r from-emerald-400 to-teal-400');
-            @endphp
-            <div class="bg-white border {{ $cardBorder }} rounded-xl shadow-card overflow-hidden card-lift">
-                <div class="h-[2px] {{ $accentLine }}"></div>
-                <div class="p-4">
-                    <div class="flex items-start justify-between mb-3">
-                        <h4 class="text-[13px] font-semibold text-gray-800 leading-tight">{{ $s['nombre'] }}</h4>
-                        <div class="flex items-center gap-1 shrink-0 ml-2 mt-0.5">
-                            @if($hasAlerts)
-                                <span class="text-[9px] font-bold bg-red-50 text-red-600 border border-red-200/80 px-1.5 py-[2px] rounded-full">{{ $s['alertas'] }}</span>
-                            @endif
-                            @if($hasPending)
-                                <span class="text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-[2px] rounded-full">{{ $s['cierres_pend'] }}c</span>
-                            @endif
-                            @if($isClean)
-                                <span class="relative flex h-[6px] w-[6px]">
-                                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
-                                    <span class="relative inline-flex rounded-full h-[6px] w-[6px] bg-emerald-400"></span>
-                                </span>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="flex items-end justify-between">
-                        <div>
-                            <p class="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Ventas</p>
-                            <p class="text-[20px] font-bold text-gray-900 tabular-nums leading-none">${{ number_format($s['ventas_hoy'], 0) }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Tx</p>
-                            <p class="text-[20px] font-bold text-gray-500 tabular-nums leading-none">{{ $s['transacciones'] }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            @endforeach
-        </div>
+        @livewire('operational-status-map')
     </div>
 
-    {{-- Right column: top products + live ops feed (2/5) --}}
+    {{-- Right column: top products + alert center (2/5) --}}
     <div class="col-span-2 flex flex-col gap-4">
 
         {{-- Top 5 products --}}
@@ -355,122 +303,11 @@
             @endforelse
         </div>
 
-        {{-- ── LIVE OPERATIONAL FEED ──────────────────────────────
-             Bloomberg-style priority feed replacing plain activity log
+        {{-- ── ALERT CENTER (boss / supervisor) ────────────────────
+             Bloomberg-style anomaly feed with force-close actions
         ──────────────────────────────────────────────────────── --}}
-        <div class="bg-white border border-gray-200/60 rounded-2xl shadow-card flex-1 flex flex-col overflow-hidden">
-
-            {{-- Feed header --}}
-            <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
-                <div class="flex items-center gap-2">
-                    <span class="relative flex h-1.5 w-1.5 shrink-0">
-                        <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
-                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <h3 class="text-[13px] font-semibold text-gray-800">Feed Operacional</h3>
-                </div>
-                <a href="{{ route('activity-logs.index') }}" class="text-[11px] font-medium text-stock-primary hover:underline">Ver todo →</a>
-            </div>
-
-            {{-- Feed entries --}}
-            <div class="overflow-y-auto flex-1 divide-y divide-gray-50">
-                @forelse($recentActivity as $log)
-                @php
-                    $action = strtolower($log->action ?? '');
-
-                    // Priority detection
-                    $isHighPriority = str_contains($action, 'alerta')   ||
-                                      str_contains($action, 'critico')  ||
-                                      str_contains($action, 'faltante');
-                    $isMedPriority  = str_contains($action, 'cierre')   ||
-                                      str_contains($action, 'recepcion')||
-                                      str_contains($action, 'inventario')||
-                                      str_contains($action, 'aprobacion');
-                    $priority = $isHighPriority ? 'high' : ($isMedPriority ? 'medium' : 'low');
-
-                    // Action category
-                    $isVenta     = str_contains($action, 'venta');
-                    $isCierre    = str_contains($action, 'cierre');
-                    $isCaja      = str_contains($action, 'caja');
-                    $isInventory = str_contains($action, 'inventario') || str_contains($action, 'recepcion');
-                    $isAlert     = str_contains($action, 'alerta');
-
-                    // Icon scheme per category
-                    if ($isAlert) {
-                        $iconBg   = 'bg-red-50';
-                        $iconClr  = 'text-red-500';
-                        $iconPath = 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
-                    } elseif ($isVenta) {
-                        $iconBg   = 'bg-emerald-50';
-                        $iconClr  = 'text-emerald-600';
-                        $iconPath = 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
-                    } elseif ($isCierre) {
-                        $iconBg   = 'bg-amber-50';
-                        $iconClr  = 'text-amber-600';
-                        $iconPath = 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z';
-                    } elseif ($isInventory) {
-                        $iconBg   = 'bg-indigo-50';
-                        $iconClr  = 'text-indigo-600';
-                        $iconPath = 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4';
-                    } elseif ($isCaja) {
-                        $iconBg   = 'bg-blue-50';
-                        $iconClr  = 'text-blue-600';
-                        $iconPath = 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z';
-                    } else {
-                        $iconBg   = 'bg-gray-100';
-                        $iconClr  = 'text-gray-400';
-                        $iconPath = 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
-                    }
-
-                    // Priority left bar color
-                    $priorityBar = match($priority) {
-                        'high'   => 'bg-red-500',
-                        'medium' => 'bg-amber-400',
-                        default  => 'bg-transparent',
-                    };
-                @endphp
-                <div class="flex items-stretch hover:bg-gray-50/60 transition-colors animate-feed-in">
-                    {{-- Priority bar (3px left accent) --}}
-                    <div class="w-[3px] shrink-0 {{ $priorityBar }}"></div>
-
-                    {{-- Content --}}
-                    <div class="flex items-start gap-3 px-4 py-3 flex-1 min-w-0">
-                        {{-- Semantic icon circle --}}
-                        <div class="w-7 h-7 rounded-lg {{ $iconBg }} {{ $iconClr }} flex items-center justify-center shrink-0 mt-[1px]">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $iconPath }}"/>
-                            </svg>
-                        </div>
-
-                        {{-- Description + meta --}}
-                        <div class="flex-1 min-w-0">
-                            <p class="text-[12px] text-gray-700 leading-snug font-medium">{{ $log->description }}</p>
-                            <p class="text-[10px] text-gray-400 mt-0.5 tabular-nums">
-                                {{ $log->user_name }}
-                                <span class="text-gray-300 mx-0.5">·</span>
-                                {{ $log->created_at->diffForHumans() }}
-                            </p>
-                        </div>
-
-                        {{-- Priority badge (only high/medium) --}}
-                        @if($priority === 'high')
-                            <span class="self-start mt-1 text-[8px] font-bold uppercase tracking-[0.1em] bg-red-100 text-red-600 px-1.5 py-[2px] rounded-md shrink-0 leading-none">HIGH</span>
-                        @elseif($priority === 'medium')
-                            <span class="self-start mt-1 text-[8px] font-bold uppercase tracking-[0.1em] bg-amber-50 text-amber-600 border border-amber-200/60 px-1.5 py-[2px] rounded-md shrink-0 leading-none">MED</span>
-                        @endif
-                    </div>
-                </div>
-                @empty
-                <div class="flex flex-col items-center justify-center px-5 py-10 text-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        </svg>
-                    </div>
-                    <p class="text-[12px] text-gray-400 font-medium">Sin actividad reciente</p>
-                </div>
-                @endforelse
-            </div>
+        <div class="flex-1 min-h-0">
+            @livewire('boss-alert-center')
         </div>
 
     </div>
