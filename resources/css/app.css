@@ -135,6 +135,74 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
+   DARK MODE — Operational Dark (Bloomberg / Linear inspired)
+   Applied via .dark class on <html> element.
+   Designed for prolonged operational use — NOT generic inversion.
+   ───────────────────────────────────────────────────────────── */
+.dark {
+    /* ── Brand (brighter on dark for contrast) ───────────────── */
+    --brand:               #4f7fff;
+    --brand-dark:          #3b6bff;
+    --brand-hover:         #527bff;
+    --brand-subtle:        rgba(79,127,255,0.12);
+    --brand-subtle-border: rgba(79,127,255,0.22);
+
+    /* ── Surfaces ────────────────────────────────────────────── */
+    --surface-app:     #090f1a;
+    --surface-card:    #111827;
+    --surface-raised:  #161f2e;
+    --surface-sunken:  #0b1120;
+    --surface-overlay: rgba(17,24,39,0.97);
+
+    /* ── Borders ─────────────────────────────────────────────── */
+    --border-subtle: rgba(255,255,255,0.05);
+    --border-base:   rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.16);
+    --border-focus:  #4f7fff;
+
+    /* ── Text ────────────────────────────────────────────────── */
+    --text-primary:   rgba(255,255,255,0.90);
+    --text-secondary: rgba(255,255,255,0.68);
+    --text-tertiary:  rgba(255,255,255,0.44);
+    --text-muted:     rgba(255,255,255,0.28);
+    --text-disabled:  rgba(255,255,255,0.18);
+    --text-inverse:   #090f1a;
+
+    /* ── Shadows (deeper on dark) ────────────────────────────── */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.32), 0 4px 16px rgba(0,0,0,0.28);
+    --shadow-lg: 0 2px 8px rgba(0,0,0,0.38), 0 12px 40px rgba(0,0,0,0.32);
+    --shadow-xl: 0 4px 16px rgba(0,0,0,0.45), 0 24px 64px rgba(0,0,0,0.40);
+    --shadow-focus: 0 0 0 3px rgba(79,127,255,0.32);
+
+    /* ── Semantic — Success (same hue, slightly brighter) ─────── */
+    --success-bg:     rgba(16,185,129,0.10);
+    --success-border: rgba(16,185,129,0.22);
+    --success-text:   #34d399;
+
+    /* ── Semantic — Warning ──────────────────────────────────── */
+    --warning-bg:     rgba(245,158,11,0.10);
+    --warning-border: rgba(245,158,11,0.22);
+    --warning-text:   #fbbf24;
+
+    /* ── Semantic — Danger ───────────────────────────────────── */
+    --danger-bg:     rgba(239,68,68,0.10);
+    --danger-border: rgba(239,68,68,0.22);
+    --danger-text:   #f87171;
+
+    /* ── Semantic — Info ─────────────────────────────────────── */
+    --info-bg:     rgba(79,127,255,0.10);
+    --info-border: rgba(79,127,255,0.22);
+    --info-text:   #7cabff;
+
+    /* ── Operational states (glows stronger on dark) ─────────── */
+    --state-live-glow:      rgba(16,185,129,0.28);
+    --state-low-glow:       rgba(245,158,11,0.30);
+    --state-critical-glow:  rgba(239,68,68,0.32);
+}
+
+/* ─────────────────────────────────────────────────────────────
    BASE LAYER
    ───────────────────────────────────────────────────────────── */
 @layer base {
@@ -147,6 +215,13 @@
     body {
         background: var(--surface-app);
         color: var(--text-primary);
+        transition: background var(--dur-slow) var(--ease-ui),
+                    color       var(--dur-slow) var(--ease-ui);
+    }
+
+    .dark body,
+    .dark {
+        color-scheme: dark;
     }
 
     /* Smooth focus outline for keyboard nav */
@@ -649,7 +724,7 @@
     .accent-bar-success  { background: linear-gradient(90deg, #34d399, #10b981, #059669); height: 3px; }
     .accent-bar-warning  { background: linear-gradient(90deg, #fbbf24, #f59e0b, #d97706); height: 3px; }
     .accent-bar-danger   { background: linear-gradient(90deg, #f87171, #ef4444, #dc2626); height: 3px; }
-    .accent-bar-brand    { background: linear-gradient(90deg, #60a5fa, #3b82f6, #003594); height: 3px; }
+    .accent-bar-brand    { background: linear-gradient(90deg, #527bff, #1440cc, #003594); height: 3px; }
 
 }   /* end @layer utilities */
 

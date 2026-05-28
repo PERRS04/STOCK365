@@ -80,7 +80,7 @@
                 $topbarSede  = $topbarUser->sede?->nombre;
                 $roleBadgeClass = match($topbarRole) {
                     'boss'       => 'bg-[#003594] text-white border-[#002470]',
-                    'supervisor' => 'bg-blue-100 text-blue-700 border-blue-200',
+                    'supervisor' => 'bg-brand-100 text-brand-700 border-brand-200',
                     default      => 'bg-gray-100 text-gray-600 border-gray-200',
                 };
                 $roleLabel = match($topbarRole) {
@@ -114,6 +114,25 @@
                     {{-- Live operational clock --}}
                     <span id="topbar-clock"
                           class="hidden xl:block text-[11px] font-mono text-gray-400 tabular-nums bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100 leading-none select-none"></span>
+
+                    <div class="hidden xl:block w-px h-5 bg-gray-100"></div>
+
+                    {{-- Dark mode toggle --}}
+                    <button
+                        id="dark-toggle"
+                        title="Alternar modo oscuro"
+                        onclick="window.toggleDarkMode()"
+                        class="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-all"
+                    >
+                        {{-- Sun icon (shown in dark mode) --}}
+                        <svg id="icon-sun" class="w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+                        </svg>
+                        {{-- Moon icon (shown in light mode) --}}
+                        <svg id="icon-moon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
 
                     <div class="hidden xl:block w-px h-5 bg-gray-100"></div>
 
@@ -162,6 +181,30 @@
     </div>
 
     <script>
+    // ── Dark mode engine ─────────────────────────────────────────
+    (function() {
+        const STORAGE_KEY = 'stock365-dark-mode';
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = saved !== null ? saved === '1' : prefersDark;
+        if (isDark) document.documentElement.classList.add('dark');
+        syncToggleIcons(isDark);
+
+        function syncToggleIcons(dark) {
+            const sun  = document.getElementById('icon-sun');
+            const moon = document.getElementById('icon-moon');
+            if (!sun || !moon) return;
+            sun.classList.toggle('hidden', !dark);
+            moon.classList.toggle('hidden', dark);
+        }
+
+        window.toggleDarkMode = function() {
+            const dark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem(STORAGE_KEY, dark ? '1' : '0');
+            syncToggleIcons(dark);
+        };
+    })();
+
     // Live operational clock
     (function() {
         function tick() {

@@ -4,6 +4,7 @@ namespace App\Livewire\Pos;
 
 use App\Models\Inventory;
 use App\Models\Product;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -11,46 +12,55 @@ use Livewire\Component;
 class ProductSearch extends Component
 {
     public string $search = '';
+    public string $marca  = '';
 
     #[Computed]
-    public function products()
+    public function marcas(): Collection
     {
-        $products = Product::where('activo', true)
-            ->when($this->search, function ($q) {
-                $q->where(function ($inner) {
-                    $inner->where('nombre', 'like', "%{$this->search}%")
-                          ->orWhere('sku', 'like', "%{$this->search}%")
-                          ->orWhere('marca', 'like', "%{$this->search}%");
-                });
-            })
-            ->orderBy('nombre')
-            ->limit(48)
-            ->get();
+        return Product::where('activo', true)
+            ->whereNotNull('marca')
+            ->where('marca', '!=', '')
+            ->distinct()
+            ->orderBy('marca')
+            ->pluck('marca');
+    }
 
+    #[Computed]
+    public function products(): Collection
+    {
         $sedeId = Auth::user()?->sede_id;
+
+        $query = Product::where('activo', true)
+            ->when($this->search, fn ($q) =>
+                $q->where(fn ($inner) =>
+                    $inner->where('nombre', 'like', "%{$this->search}%")
+                          ->orWhere('sku',   'like', "%{$this->search}%")
+                          ->orWhere('marca', 'like', "%{$this->search}%")
+                )
+            )
+            ->when($this->marca, fn ($q) => $q->where('marca', $this->marca))
+            ->orderBy('nombre')
+            ->limit(60)
+            ->get();
 
         if ($sedeId) {
             $stockMap = Inventory::where('sede_id', $sedeId)
+                ->whereIn('product_id', $query->pluck('id'))
                 ->pluck('cantidad_stock', 'product_id');
 
-            $products->each(function ($product) use ($stockMap) {
-                $product->stock_sede = $stockMap->get($product->id, 0);
-            });
+            $query->each(fn ($p) => $p->stock_sede = $stockMap->get($p->id, 0));
         } else {
-            $products->each(fn($p) => $p->stock_sede = null);
+            $query->each(fn ($p) => $p->stock_sede = null);
         }
 
-        return $products;
+        return $query;
     }
 
-    // Called when the operator presses Enter in the search box.
-    // If there is exactly one match, add it to the cart automatically.
     public function selectFirst(): void
     {
         $first = $this->products->first();
-        if (!$first) {
-            return;
-        }
+        if (!$first) return;
+        if (($first->stock_sede ?? 1) === 0) return;
 
         $this->dispatch('add-to-cart',
             id:     $first->id,
