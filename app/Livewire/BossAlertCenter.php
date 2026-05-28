@@ -6,6 +6,8 @@ use App\Models\ActivityLog;
 use App\Models\CashSession;
 use App\Services\ActivityLogger;
 use App\Services\OperationalIntelligence\AlertDetectionService;
+use App\Services\Realtime\IncidentLifecycleService;
+use App\Services\Realtime\OperationalRealtimeService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -28,13 +30,13 @@ class BossAlertCenter extends Component
         $alerts   = app(AlertDetectionService::class)->detectAll();
         $critical = $alerts->filter(fn ($a) => $a->isCritical());
         $warning  = $alerts->filter(fn ($a) => $a->isWarning());
+        $events   = app(OperationalRealtimeService::class)->getLatestEvents(15);
 
-        return view('livewire.boss-alert-center', compact('alerts', 'critical', 'warning'));
+        return view('livewire.boss-alert-center', compact('alerts', 'critical', 'warning', 'events'));
     }
 
     // ── Force-close flow ──────────────────────────────────────────────────────
 
-    /** Open the confirmation modal for a given session. */
     public function promptForceClose(int $sessionId): void
     {
         abort_unless(Auth::user()?->isAdminLevel(), 403);
@@ -44,7 +46,6 @@ class BossAlertCenter extends Component
         $this->resetValidation();
     }
 
-    /** Close the modal without acting. */
     public function cancelForceClose(): void
     {
         $this->forceCloseSessionId = null;
@@ -52,10 +53,6 @@ class BossAlertCenter extends Component
         $this->resetValidation();
     }
 
-    /**
-     * Execute the force-close with mandatory reason capture.
-     * Handles model update + audit log inline so no page reload is needed.
-     */
     public function executeForceClose(): void
     {
         abort_unless(Auth::user()?->isAdminLevel(), 403);
@@ -85,12 +82,36 @@ class BossAlertCenter extends Component
             ['status' => 'closed', 'motivo' => $this->forceCloseMotivo, 'authorized_by' => Auth::user()->name]
         );
 
-        // Flush alert cache so next render reflects the change immediately
         app(AlertDetectionService::class)->flush();
+        app(OperationalRealtimeService::class)->flush();
 
         $this->forceCloseSessionId = null;
         $this->forceCloseMotivo    = '';
 
         $this->dispatch('toast', message: 'Sesión cerrada forzosamente. Cambio auditado.', type: 'success');
+    }
+
+    // ── Incident lifecycle ────────────────────────────────────────────────────
+
+    public function acknowledgeAlert(string $alertId): void
+    {
+        abort_unless(Auth::user()?->isAdminLevel(), 403);
+
+        app(IncidentLifecycleService::class)->acknowledge($alertId, Auth::user());
+        $this->dispatch('toast', message: 'Alerta marcada como vista.', type: 'info');
+    }
+
+    public function resolveAlert(string $alertId): void
+    {
+        abort_unless(Auth::user()?->isAdminLevel(), 403);
+
+        app(IncidentLifecycleService::class)->resolve($alertId, Auth::user());
+        app(AlertDetectionService::class)->flush();
+        $this->dispatch('toast', message: 'Incidente marcado como resuelto.', type: 'success');
+    }
+
+    public function getIncidentStatus(string $alertId): string
+    {
+        return app(IncidentLifecycleService::class)->getStatus($alertId)->value;
     }
 }

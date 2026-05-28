@@ -71,97 +71,9 @@
 @endif
 
 {{-- ══════════════════════════════════════════════════════
-     KPI STRIP — COMMAND CENTER
+     KPI STRIP — LIVE (Livewire, 30s poll, Alpine animated)
 ══════════════════════════════════════════════════════ --}}
-<div class="bg-white border border-gray-200/60 rounded-2xl shadow-card overflow-hidden">
-    {{-- Brand gradient accent line --}}
-    <div class="h-[3px] bg-gradient-to-r from-stock-primary via-blue-500 to-indigo-400"></div>
-
-    <div class="grid {{ $isBoss ? 'grid-cols-7' : 'grid-cols-6' }} divide-x divide-gray-100/80">
-
-        {{-- HERO: Ventas Hoy --}}
-        <div class="px-6 py-5 relative">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ventas Hoy</p>
-            <p class="text-[28px] font-extrabold text-gray-900 leading-none tabular-nums tracking-tight">${{ number_format($totalSalesToday, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-2 tabular-nums">{{ $transactionCount }} transacciones</p>
-        </div>
-
-        {{-- Ventas Mes --}}
-        <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ventas Mes</p>
-            <p class="text-[20px] font-bold text-gray-900 leading-none tabular-nums">${{ number_format($totalSalesMonth, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-2">{{ now()->locale('es')->isoFormat('MMMM') }}</p>
-        </div>
-
-        {{-- Utilidad (boss only) --}}
-        @if($isBoss)
-        <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Utilidad</p>
-            <p class="text-[20px] font-bold leading-none tabular-nums {{ $utilidadHoy > 0 ? 'text-emerald-600' : 'text-gray-700' }}">${{ number_format($utilidadHoy, 0, '.', ',') }}</p>
-            <p class="text-[11px] text-gray-400 mt-2">Margen bruto</p>
-        </div>
-        @endif
-
-        {{-- Ticket Promedio --}}
-        <div class="px-5 py-5">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Ticket Prom.</p>
-            <p class="text-[20px] font-bold text-gray-900 leading-none tabular-nums">${{ number_format($avgTicket, 2) }}</p>
-            <p class="text-[11px] text-gray-400 mt-2">Por transacción</p>
-        </div>
-
-        {{-- Cierres Pendientes --}}
-        <div class="px-5 py-5 transition-colors {{ $pendingClosings > 0 ? 'bg-amber-50/60' : '' }}">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] {{ $pendingClosings > 0 ? 'text-amber-500' : 'text-gray-400' }} mb-2.5">Cierres</p>
-            <p class="text-[20px] font-bold leading-none tabular-nums {{ $pendingClosings > 0 ? 'text-amber-500' : 'text-gray-300' }}">{{ $pendingClosings }}</p>
-            @if($pendingClosings > 0)
-                <a href="{{ route('cash-closings.pending') }}" class="text-[11px] text-amber-600 hover:underline mt-2 inline-flex items-center gap-0.5 font-semibold">
-                    Revisar
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </a>
-            @else
-                <p class="text-[11px] text-emerald-500 font-semibold mt-2">Al día</p>
-            @endif
-        </div>
-
-        {{-- Alertas de Stock --}}
-        <div class="px-5 py-5 transition-colors {{ $alertCount > 0 ? 'bg-red-50/40' : '' }}">
-            <div class="flex items-center gap-1.5 mb-2.5">
-                @if($alertCount > 0)
-                <span class="relative flex h-[5px] w-[5px] shrink-0">
-                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-red-400"></span>
-                    <span class="relative inline-flex rounded-full h-[5px] w-[5px] bg-red-500"></span>
-                </span>
-                @endif
-                <p class="text-[9px] font-bold uppercase tracking-[0.15em] {{ $alertCount > 0 ? 'text-red-500' : 'text-gray-400' }}">Alertas</p>
-            </div>
-            <p class="text-[20px] font-bold leading-none tabular-nums {{ $alertCount > 0 ? 'text-red-500' : 'text-gray-300' }}">{{ $alertCount }}</p>
-            @if($alertCount > 0)
-                <a href="{{ route('inventory.index') }}" class="text-[11px] text-red-500 hover:underline mt-2 inline-flex items-center gap-0.5 font-semibold">
-                    Ver stock
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </a>
-            @else
-                <p class="text-[11px] text-emerald-500 font-semibold mt-2">Normal</p>
-            @endif
-        </div>
-
-        {{-- Cajas Activas --}}
-        <div class="px-5 py-5 {{ $activeSessionsCount > 0 ? 'bg-emerald-50/30' : '' }}">
-            <p class="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-2.5">Cajas</p>
-            <div class="flex items-center gap-2">
-                @if($activeSessionsCount > 0)
-                <span class="relative flex h-[7px] w-[7px] shrink-0">
-                    <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
-                    <span class="relative inline-flex rounded-full h-[7px] w-[7px] bg-emerald-500"></span>
-                </span>
-                @endif
-                <p class="text-[20px] font-bold leading-none tabular-nums {{ $activeSessionsCount > 0 ? 'text-emerald-600' : 'text-gray-300' }}">{{ $activeSessionsCount }}</p>
-            </div>
-            <a href="{{ route('cash-sessions.index') }}" class="text-[11px] text-gray-400 hover:text-stock-primary mt-2 inline-block transition-colors">Ver sesiones →</a>
-        </div>
-
-    </div>
-</div>
+@livewire('live-kpi-strip')
 
 {{-- ══════════════════════════════════════════════════════
      MAIN ROW (3:2) — sales chart + alerts/closings
