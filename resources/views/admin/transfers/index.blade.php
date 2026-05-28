@@ -5,9 +5,8 @@
 <div class="space-y-5">
 
     <div class="flex items-center justify-between">
-        <h1 class="text-[18px] font-semibold text-gray-900">Transferencias entre Sedes</h1>
-        <a href="{{ route('transfers.create') }}"
-           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-stock-primary text-white text-[13px] font-medium hover:bg-stock-primary/90 transition">
+        <h1 class="page-title">Transferencias entre Sedes</h1>
+        <a href="{{ route('transfers.create') }}" class="btn btn-primary btn-sm">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -34,7 +33,7 @@
         @endforeach
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100">
                 <tr>

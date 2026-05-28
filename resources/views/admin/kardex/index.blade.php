@@ -4,16 +4,16 @@
 
 <div class="space-y-5">
 
-    <h1 class="text-[18px] font-semibold text-gray-900">Kardex de Inventario</h1>
+    <h1 class="page-title">Kardex de Inventario</h1>
 
     {{-- Filter form --}}
     <form method="GET" action="{{ route('kardex.index') }}"
-          class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-4 flex flex-wrap gap-3 items-end">
+          class="bg-white rounded-2xl border border-gray-200/60 shadow-card px-5 py-4 flex flex-wrap gap-3 items-end">
 
         <div class="flex-1 min-w-[200px]">
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Producto *</label>
+            <label class="form-label">Producto *</label>
             <select name="product_id" required
-                    class="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                    class="input input-sm w-full">
                 <option value="">— Seleccionar producto —</option>
                 @foreach($products as $p)
                     <option value="{{ $p->id }}" {{ request('product_id') == $p->id ? 'selected' : '' }}>
@@ -24,9 +24,9 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Sede</label>
+            <label class="form-label">Sede</label>
             <select name="sede_id"
-                    class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                    class="input input-sm">
                 <option value="">Todas</option>
                 @foreach($sedes as $s)
                     <option value="{{ $s->id }}" {{ request('sede_id') == $s->id ? 'selected' : '' }}>{{ $s->nombre }}</option>
@@ -35,18 +35,18 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Desde</label>
+            <label class="form-label">Desde</label>
             <input type="date" name="desde" value="{{ request('desde') }}"
-                   class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                   class="input input-sm">
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Hasta</label>
+            <label class="form-label">Hasta</label>
             <input type="date" name="hasta" value="{{ request('hasta') }}"
-                   class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                   class="input input-sm">
         </div>
 
-        <button type="submit" class="px-4 py-2 bg-stock-primary text-white text-[13px] font-medium rounded-lg hover:bg-stock-primary/90 transition">
+        <button type="submit" class="btn btn-primary btn-sm">
             Consultar
         </button>
     </form>
@@ -54,7 +54,7 @@
     @if($product)
 
     {{-- Product header --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-4 flex items-center justify-between">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card px-5 py-4 flex items-center justify-between">
         <div>
             <p class="text-[11px] text-gray-400 uppercase tracking-widest">Producto consultado</p>
             <p class="text-[16px] font-semibold text-gray-900 mt-0.5">{{ $product->nombre }}
@@ -79,7 +79,7 @@
     </div>
 
     {{-- Movements table --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100 bg-gray-50/50">
                 <tr>
@@ -136,7 +136,7 @@
     </div>
 
     @else
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-12 text-center">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card px-5 py-12 text-center">
         <svg class="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>

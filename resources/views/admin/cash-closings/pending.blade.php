@@ -85,16 +85,14 @@
                             <form action="{{ route('cash-closings.approve', $closing) }}" method="POST"
                                   data-confirm="¿Aprobar el cierre de {{ $closing->user?->name ?? 'operador' }}?">
                                 @csrf @method('PATCH')
-                                <button type="submit"
-                                        class="px-3 py-1.5 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors">
+                                <button type="submit" class="btn btn-success btn-sm">
                                     Aprobar
                                 </button>
                             </form>
                             <form action="{{ route('cash-closings.reject', $closing) }}" method="POST"
                                   data-confirm="¿Rechazar el cierre de {{ $closing->user?->name ?? 'operador' }}?">
                                 @csrf @method('PATCH')
-                                <button type="submit"
-                                        class="px-3 py-1.5 text-[11px] font-semibold border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <button type="submit" class="btn btn-sm btn-secondary text-red-600 border-red-200 hover:bg-red-50">
                                     Rechazar
                                 </button>
                             </form>

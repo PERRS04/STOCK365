@@ -9,7 +9,7 @@
         <div class="flex items-center gap-3">
             <a href="{{ route('dashboard') }}" class="text-[12px] text-gray-400 hover:text-gray-600 transition">← Dashboard</a>
             <span class="text-gray-200">/</span>
-            <h1 class="text-[18px] font-semibold text-gray-900">Movimientos de Caja</h1>
+            <h1 class="page-title">Movimientos de Caja</h1>
         </div>
         <span class="text-[12px] text-gray-400">{{ $movements->total() }} registros</span>
     </div>
@@ -46,9 +46,9 @@
         <input type="hidden" name="status" value="{{ $status }}"/>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Sede</label>
+            <label class="form-label">Sede</label>
             <select name="sede_id"
-                    class="px-3 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary bg-white">
+                    class="input input-sm">
                 <option value="">Todas las sedes</option>
                 @foreach($sedes as $sede)
                     <option value="{{ $sede->id }}" {{ request('sede_id') == $sede->id ? 'selected' : '' }}>{{ $sede->nombre }}</option>
@@ -57,9 +57,9 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Operadora</label>
+            <label class="form-label">Operadora</label>
             <select name="user_id"
-                    class="px-3 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary bg-white">
+                    class="input input-sm">
                 <option value="">Todas</option>
                 @foreach($operators as $op)
                     <option value="{{ $op->id }}" {{ request('user_id') == $op->id ? 'selected' : '' }}>{{ $op->name }}</option>
@@ -68,31 +68,29 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Desde</label>
+            <label class="form-label">Desde</label>
             <input type="date" name="date_from" value="{{ request('date_from') }}"
-                   class="px-3 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary"/>
+                   class="input input-sm"/>
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Hasta</label>
+            <label class="form-label">Hasta</label>
             <input type="date" name="date_to" value="{{ request('date_to') }}"
-                   class="px-3 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary"/>
+                   class="input input-sm"/>
         </div>
 
-        <button type="submit"
-                class="px-3.5 py-1.5 bg-stock-primary text-white text-[12px] font-medium rounded-lg hover:bg-blue-800 transition-colors">
+        <button type="submit" class="btn btn-primary btn-sm">
             Filtrar
         </button>
         @if(request()->hasAny(['sede_id','user_id','date_from','date_to']))
-        <a href="{{ route('cash-movements.index', ['status' => $status]) }}"
-           class="px-3.5 py-1.5 text-[12px] text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition-colors">
+        <a href="{{ route('cash-movements.index', ['status' => $status]) }}" class="btn btn-ghost btn-sm">
             Limpiar
         </a>
         @endif
     </form>
 
     {{-- Table --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100">
                 <tr>

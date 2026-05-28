@@ -5,13 +5,13 @@
 <div class="space-y-5">
 
     <div class="flex items-center justify-between">
-        <h1 class="text-[18px] font-semibold text-gray-900">Historial de Compras</h1>
+        <h1 class="page-title">Historial de Compras</h1>
         <div class="flex gap-3 text-[13px]">
-            <div class="px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+            <div class="px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-card">
                 <span class="text-gray-400">Este mes:</span>
                 <span class="font-bold text-gray-900 ml-1">${{ number_format($totalMes, 2) }}</span>
             </div>
-            <div class="px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+            <div class="px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-card">
                 <span class="text-gray-400">Este año:</span>
                 <span class="font-bold text-gray-900 ml-1">${{ number_format($totalAnio, 2) }}</span>
             </div>
@@ -20,11 +20,11 @@
 
     {{-- Filters --}}
     <form method="GET" action="{{ route('purchases.index') }}"
-          class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-4 flex flex-wrap gap-3 items-end">
+          class="bg-white rounded-2xl border border-gray-200/60 shadow-card px-5 py-4 flex flex-wrap gap-3 items-end">
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Proveedor</label>
-            <select name="provider_id" class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+            <label class="form-label">Proveedor</label>
+            <select name="provider_id" class="input input-sm">
                 <option value="">Todos</option>
                 @foreach($providers as $p)
                     <option value="{{ $p->id }}" {{ request('provider_id') == $p->id ? 'selected' : '' }}>{{ $p->nombre }}</option>
@@ -33,8 +33,8 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Sede</label>
-            <select name="sede_id" class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+            <label class="form-label">Sede</label>
+            <select name="sede_id" class="input input-sm">
                 <option value="">Todas</option>
                 @foreach($sedes as $s)
                     <option value="{{ $s->id }}" {{ request('sede_id') == $s->id ? 'selected' : '' }}>{{ $s->nombre }}</option>
@@ -43,24 +43,24 @@
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Desde</label>
+            <label class="form-label">Desde</label>
             <input type="date" name="desde" value="{{ request('desde') }}"
-                   class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                   class="input input-sm">
         </div>
 
         <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Hasta</label>
+            <label class="form-label">Hasta</label>
             <input type="date" name="hasta" value="{{ request('hasta') }}"
-                   class="px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                   class="input input-sm">
         </div>
 
         <div class="flex gap-2">
-            <button type="submit" class="px-4 py-2 bg-stock-primary text-white text-[13px] font-medium rounded-lg hover:bg-stock-primary/90 transition">Filtrar</button>
-            <a href="{{ route('purchases.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 text-[13px] font-medium rounded-lg hover:bg-gray-200 transition">Limpiar</a>
+            <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+            <a href="{{ route('purchases.index') }}" class="btn btn-secondary btn-sm">Limpiar</a>
         </div>
     </form>
 
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100">
                 <tr>

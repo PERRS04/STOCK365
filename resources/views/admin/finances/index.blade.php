@@ -6,41 +6,41 @@
 
     {{-- Header + month selector --}}
     <div class="flex items-center justify-between">
-        <h1 class="text-[18px] font-semibold text-gray-900">Finanzas</h1>
+        <h1 class="page-title">Finanzas</h1>
         <form method="GET" class="flex items-center gap-2">
-            <select name="mes" class="px-3 py-1.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+            <select name="mes" class="input input-sm">
                 @foreach($meses as $num => $nombre)
                 <option value="{{ $num }}" {{ $mes == $num ? 'selected' : '' }}>{{ ucfirst($nombre) }}</option>
                 @endforeach
             </select>
-            <select name="anio" class="px-3 py-1.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+            <select name="anio" class="input input-sm">
                 @foreach($anios as $y)
                 <option value="{{ $y }}" {{ $anio == $y ? 'selected' : '' }}>{{ $y }}</option>
                 @endforeach
             </select>
-            <button type="submit" class="px-3.5 py-1.5 bg-stock-primary text-white text-[13px] font-medium rounded-lg hover:bg-stock-primary/90 transition">Ver</button>
+            <button type="submit" class="btn btn-primary btn-sm">Ver</button>
         </form>
     </div>
 
     {{-- KPI strip --}}
     <div class="grid grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Ventas del Mes</p>
-            <p class="text-[22px] font-bold text-gray-900">${{ number_format($ventasMes, 2) }}</p>
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
+            <p class="metric-label">Ventas del Mes</p>
+            <p class="metric-value-sm num">${{ number_format($ventasMes, 2) }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Compras del Mes</p>
-            <p class="text-[22px] font-bold text-gray-900">${{ number_format($comprasMes, 2) }}</p>
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
+            <p class="metric-label">Compras del Mes</p>
+            <p class="metric-value-sm num">${{ number_format($comprasMes, 2) }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-emerald-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Utilidad Bruta</p>
-            <p class="text-[22px] font-bold {{ $utilidadBruta >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+        <div class="bg-white rounded-xl border border-emerald-200/80 shadow-card p-5">
+            <p class="metric-label">Utilidad Bruta</p>
+            <p class="metric-value-sm num {{ $utilidadBruta >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
                 ${{ number_format($utilidadBruta, 2) }}
             </p>
         </div>
-        <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Margen</p>
-            <p class="text-[22px] font-bold {{ $margenPct >= 20 ? 'text-emerald-600' : ($margenPct >= 10 ? 'text-amber-600' : 'text-red-600') }}">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
+            <p class="metric-label">Margen</p>
+            <p class="metric-value-sm num {{ $margenPct >= 20 ? 'text-emerald-600' : ($margenPct >= 10 ? 'text-amber-600' : 'text-red-600') }}">
                 {{ $margenPct }}%
             </p>
         </div>
@@ -49,7 +49,7 @@
     <div class="grid grid-cols-5 gap-5">
 
         {{-- Trend chart (6 months) --}}
-        <div class="col-span-3 bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
+        <div class="col-span-3 bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
             <h2 class="text-[13px] font-semibold text-gray-900 mb-4">Tendencia 6 meses</h2>
             <div class="space-y-3">
                 @foreach($trend as $t)
@@ -89,7 +89,7 @@
         <div class="col-span-2 space-y-5">
 
             {{-- Ventas por sede --}}
-            <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
+            <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
                 <h2 class="text-[13px] font-semibold text-gray-900 mb-3">Ventas por Sede</h2>
                 @if($ventasPorSede->isEmpty())
                     <p class="text-[12px] text-gray-400">Sin ventas este mes</p>
@@ -113,7 +113,7 @@
             </div>
 
             {{-- Compras por proveedor --}}
-            <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
+            <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
                 <h2 class="text-[13px] font-semibold text-gray-900 mb-3">Compras por Proveedor</h2>
                 @if($comprasPorProveedor->isEmpty())
                     <p class="text-[12px] text-gray-400">Sin compras este mes</p>
@@ -136,7 +136,7 @@
     </div>
 
     {{-- Cost breakdown --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
         <h2 class="text-[13px] font-semibold text-gray-900 mb-4">Desglose de Resultados</h2>
         <div class="grid grid-cols-4 gap-8 text-[13px]">
             <div>

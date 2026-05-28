@@ -9,7 +9,7 @@
         <div class="flex items-center gap-3">
             <a href="{{ route('inventory.index') }}" class="text-[12px] text-gray-400 hover:text-gray-600 transition">← Inventario</a>
             <span class="text-gray-200">/</span>
-            <h1 class="text-[18px] font-semibold text-gray-900">Recepciones de Mercancía</h1>
+            <h1 class="page-title">Recepciones de Mercancía</h1>
         </div>
         <span class="text-[12px] text-gray-400">{{ $receipts->total() }} registros</span>
     </div>
@@ -42,7 +42,7 @@
     </div>
 
     {{-- Table --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100">
                 <tr>

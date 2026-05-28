@@ -5,10 +5,9 @@
 <div class="space-y-5">
 
     <div class="flex items-center justify-between">
-        <h1 class="text-[18px] font-semibold text-gray-900">Proveedores</h1>
+        <h1 class="page-title">Proveedores</h1>
         @can('products.create')
-        <a href="{{ route('suppliers.create') }}"
-           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-stock-primary text-white text-[13px] font-medium hover:bg-stock-primary/90 transition">
+        <a href="{{ route('suppliers.create') }}" class="btn btn-primary btn-sm">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -40,13 +39,13 @@
         @endif
         <input type="text" name="q" value="{{ request('q') }}"
                placeholder="Buscar por nombre, RUC, email…"
-               class="flex-1 px-3 py-2 text-[13px] rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
-        <button type="submit" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[13px] font-medium rounded-lg transition">
+               class="input input-sm flex-1">
+        <button type="submit" class="btn btn-secondary btn-sm">
             Buscar
         </button>
     </form>
 
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <table class="w-full text-[13px]">
             <thead class="border-b border-gray-100">
                 <tr>

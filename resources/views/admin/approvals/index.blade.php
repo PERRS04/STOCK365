@@ -7,7 +7,7 @@
     {{-- Header --}}
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-[18px] font-semibold text-gray-900">Aprobaciones Pendientes</h1>
+            <h1 class="page-title">Aprobaciones Pendientes</h1>
             <p class="text-[12px] text-gray-400 mt-0.5">Todas las solicitudes que requieren revisión</p>
         </div>
         @if($totalPending > 0)
@@ -26,7 +26,7 @@
     </div>
 
     @if($totalPending === 0)
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-12 text-center">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-12 text-center">
         <svg class="w-12 h-12 text-emerald-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -38,7 +38,7 @@
     {{-- Cortesías pendientes --}}
     @can('courtesies.approve')
     @if($pendingCourtesies->count() > 0)
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <div class="flex items-center gap-2.5">
                 {{-- Gift icon --}}
@@ -93,7 +93,7 @@
     {{-- Movimientos de caja pendientes --}}
     @can('cash_movements.approve')
     @if($pendingCashMovements->count() > 0)
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card overflow-hidden">
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <div class="flex items-center gap-2.5">
                 {{-- Banknote icon --}}

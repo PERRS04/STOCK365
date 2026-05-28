@@ -1,6 +1,6 @@
 <div class="space-y-4">
     {{-- Filters --}}
-    <div class="bg-white rounded-lg shadow p-4">
+    <div class="bg-white rounded-2xl shadow-card border border-gray-200/60 px-5 py-4">
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {{-- Search --}}
             <div class="lg:col-span-2">
@@ -10,14 +10,13 @@
                     </svg>
                     <input type="text" wire:model.live.debounce.300ms="search"
                         placeholder="Usuario, descripción o IP…"
-                        class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary"/>
+                        class="input input-sm w-full pl-9"/>
                 </div>
             </div>
 
             {{-- Action type --}}
             <div>
-                <select wire:model.live="action"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary">
+                <select wire:model.live="action" class="input input-sm w-full">
                     <option value="">Todos los módulos</option>
                     @foreach($this->actionGroups as $key => $label)
                         <option value="{{ $key }}">{{ $label }}</option>
@@ -27,8 +26,7 @@
 
             {{-- Role --}}
             <div>
-                <select wire:model.live="role"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary">
+                <select wire:model.live="role" class="input input-sm w-full">
                     <option value="">Todos los roles</option>
                     <option value="boss">Boss</option>
                     <option value="supervisor">Supervisor</option>
@@ -38,8 +36,7 @@
 
             {{-- Sede --}}
             <div>
-                <select wire:model.live="sedeId"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary">
+                <select wire:model.live="sedeId" class="input input-sm w-full">
                     <option value="">Todas las sedes</option>
                     @foreach($this->sedes as $sede)
                         <option value="{{ $sede->id }}">{{ $sede->nombre }}</option>
@@ -49,24 +46,22 @@
 
             {{-- Dates --}}
             <div class="flex gap-2 items-center">
-                <input type="date" wire:model.live="startDate"
-                    class="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary"/>
-                <span class="text-gray-400 text-xs">→</span>
-                <input type="date" wire:model.live="endDate"
-                    class="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stock-primary"/>
+                <input type="date" wire:model.live="startDate" class="input input-sm flex-1"/>
+                <span class="text-gray-400 text-[10px]">→</span>
+                <input type="date" wire:model.live="endDate" class="input input-sm flex-1"/>
             </div>
         </div>
 
         @if($search || $action || $role || $sedeId || $startDate || $endDate)
             <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                <span class="text-xs text-gray-500">{{ $this->logs->total() }} registro(s) encontrado(s)</span>
-                <button wire:click="clear" class="text-xs text-red-500 hover:text-red-700 transition">
+                <span class="text-[11px] text-gray-500">{{ $this->logs->total() }} registro(s) encontrado(s)</span>
+                <button wire:click="clear" class="text-[11px] text-red-500 hover:text-red-700 transition">
                     Limpiar filtros ×
                 </button>
             </div>
         @endif
 
-        <div wire:loading.delay class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+        <div wire:loading.delay class="flex items-center gap-2 text-[11px] text-gray-500 mt-2">
             <svg class="w-3 h-3 animate-spin text-stock-primary" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -76,22 +71,22 @@
     </div>
 
     {{-- Table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden transition-opacity duration-150" wire:loading.class.delay="opacity-60">
+    <div class="bg-white rounded-2xl shadow-card border border-gray-200/60 overflow-hidden transition-opacity duration-150" wire:loading.class.delay="opacity-60">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 border-b border-gray-200">
+            <table class="w-full text-[13px]">
+                <thead class="border-b border-gray-100">
                     <tr>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Timestamp</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Usuario</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Acción</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Descripción</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Cambios</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">IP</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 whitespace-nowrap">Timestamp</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Usuario</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Acción</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Descripción</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Cambios</th>
+                        <th class="text-left py-3 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">IP</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-50">
                     @forelse($this->logs as $log)
-                        <tr class="hover:bg-gray-50 transition align-top">
+                        <tr class="hover:bg-gray-50/50 transition-colors align-top">
                             {{-- Timestamp --}}
                             <td class="py-3 px-4 whitespace-nowrap">
                                 <p class="text-gray-800 font-mono text-xs">{{ $log->created_at->format('d/m/Y') }}</p>
@@ -176,8 +171,8 @@
             </table>
         </div>
 
-        <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-            <p class="text-xs text-gray-500">{{ $this->logs->total() }} registros totales</p>
+        <div class="px-5 py-3.5 border-t border-gray-100 flex items-center justify-between">
+            <p class="text-[11px] text-gray-400">{{ $this->logs->total() }} registros totales</p>
             {{ $this->logs->links() }}
         </div>
     </div>
