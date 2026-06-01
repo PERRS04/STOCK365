@@ -109,7 +109,7 @@
                     Monto Total Pagado (USD) <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
-                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-gray-400 font-medium">$</span>
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-gray-400 font-medium pointer-events-none">$</span>
                     <input type="number" name="monto_pagado" x-model.number="total"
                            step="0.01" min="0.01" placeholder="0.00"
                            class="w-full pl-8 pr-3.5 py-2.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:border-stock-primary focus:ring-2 focus:ring-stock-primary/20 transition @error('monto_pagado') border-red-300 @enderror">
@@ -150,7 +150,7 @@
                                     @endforeach
                                 </select>
                                 <div class="relative w-28 shrink-0">
-                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">$</span>
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400 pointer-events-none">$</span>
                                     <input type="number" :name="`allocations[${i}][monto]`"
                                            x-model.number="alloc.monto"
                                            step="0.01" min="0.01" placeholder="0.00"

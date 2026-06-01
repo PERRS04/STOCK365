@@ -155,7 +155,7 @@
                     Efectivo contado <span class="text-red-500">*</span>
                 </label>
                 <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[15px] font-semibold">$</span>
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[15px] font-semibold pointer-events-none">$</span>
                     <input
                         type="number"
                         name="efectivo"
@@ -179,7 +179,7 @@
                     <span class="text-gray-400 font-normal normal-case">(opcional)</span>
                 </label>
                 <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]">$</span>
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">$</span>
                     <input
                         type="number"
                         name="transferencias"
@@ -204,7 +204,7 @@
                 </button>
                 <div x-show="open" x-transition class="mt-2">
                     <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]">$</span>
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">$</span>
                         <input
                             type="number"
                             name="cheques"

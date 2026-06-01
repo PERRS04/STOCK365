@@ -248,7 +248,7 @@
                     Nuevo monto de apertura <span class="text-red-500">*</span>
                 </label>
                 <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium pointer-events-none">$</span>
                     <input type="number" name="monto_nuevo" step="0.01" min="0" required
                            placeholder="{{ number_format($session->opening_amount, 2) }}"
                            class="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl text-[15px] font-semibold

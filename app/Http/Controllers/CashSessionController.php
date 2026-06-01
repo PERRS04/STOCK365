@@ -44,7 +44,8 @@ class CashSessionController extends Controller
         abort_unless(auth()->user()->isOperator(), 403);
 
         $validated = $request->validate([
-            'notes' => 'nullable|string|max:500',
+            'opening_amount' => 'required|numeric|min:0',
+            'notes'          => 'nullable|string|max:500',
         ]);
 
         $user    = Auth::user();
@@ -55,14 +56,13 @@ class CashSessionController extends Controller
                 ->with('info', 'Ya tienes una caja abierta.');
         }
 
-        // Auto-calculate opening from last approved closing
         $lastClosing = CashClosing::where('sede_id', $user->sede_id)
             ->where('estado', 'aprobado')
             ->whereNotNull('saldo_final')
             ->orderBy('fecha_cierre', 'desc')
             ->first();
 
-        $openingAmount = $lastClosing ? (float) $lastClosing->saldo_final : 0.00;
+        $openingAmount = (float) $validated['opening_amount'];
 
         $session = CashSession::create([
             'user_id'                   => $user->id,
@@ -74,8 +74,11 @@ class CashSessionController extends Controller
             'opened_at'                 => now(),
         ]);
 
+        $inheritedAmount = $lastClosing ? (float) $lastClosing->saldo_final : 0.00;
         $source = $lastClosing
-            ? "Heredado del cierre {$lastClosing->fecha_cierre->format('d/m/Y')}"
+            ? ($openingAmount !== $inheritedAmount
+                ? "Ajustado por operador (heredado: \${$inheritedAmount} del {$lastClosing->fecha_cierre->format('d/m/Y')})"
+                : "Heredado del cierre {$lastClosing->fecha_cierre->format('d/m/Y')}")
             : 'Primera apertura';
 
         ActivityLogger::log(

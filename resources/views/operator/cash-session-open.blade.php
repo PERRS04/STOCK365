@@ -52,6 +52,36 @@
         <form method="POST" action="{{ route('cash-session.store') }}">
             @csrf
 
+            <div class="mb-5">
+                <label class="block text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-500 mb-1.5">
+                    Monto de apertura <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] font-medium pointer-events-none">$</span>
+                    <input
+                        type="number"
+                        name="opening_amount"
+                        min="0"
+                        step="0.01"
+                        value="{{ old('opening_amount', number_format($inheritedAmount, 2, '.', '')) }}"
+                        class="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl text-[15px] font-semibold text-gray-900
+                               focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary transition
+                               @error('opening_amount') border-red-400 @enderror"
+                        placeholder="0.00"
+                        autofocus
+                        required
+                    >
+                </div>
+                @error('opening_amount')
+                    <p class="mt-1 text-[12px] text-red-600">{{ $message }}</p>
+                @enderror
+                @if($lastClosing)
+                    <p class="mt-1 text-[11px] text-gray-400">Pre-llenado desde el cierre del {{ $lastClosing->fecha_cierre->format('d/m/Y') }}. Ajusta si el efectivo físico es diferente.</p>
+                @else
+                    <p class="mt-1 text-[11px] text-gray-400">Ingresa el efectivo físico que hay en caja al abrir el turno.</p>
+                @endif
+            </div>
+
             <div class="mb-6">
                 <label class="block text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-500 mb-1.5">
                     Notas de apertura
@@ -73,9 +103,9 @@
             >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                          d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 002 2z"/>
                 </svg>
-                Abrir caja · ${{ number_format($inheritedAmount, 2) }}
+                Abrir caja
             </button>
         </form>
     </div>
