@@ -4,76 +4,118 @@
 <div class="space-y-5">
 
 {{-- ══════════════════════════════════════════════════════
-     PAGE HEADER
+     COMMAND HEADER
 ══════════════════════════════════════════════════════ --}}
-<div class="flex items-center justify-between">
+<div class="flex items-start justify-between gap-4 flex-wrap">
     <div>
-        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400 mb-1.5">
-            {{ now()->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY') }}
-        </p>
-        <h1 class="text-[20px] font-bold text-gray-900 leading-none tracking-tight">Centro de Control</h1>
-    </div>
-    <div class="flex items-center gap-2">
-        @if($isBoss)
-            <span class="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.1em] uppercase bg-stock-primary text-white px-2.5 py-1 rounded-full shadow-sm">
-                <span class="w-1 h-1 rounded-full bg-stock-accent"></span>
+        <div class="flex items-center gap-2.5 mb-2">
+            @if($isBoss)
+            <span class="inline-flex items-center gap-1.5 text-[9px] font-bold tracking-[0.15em] uppercase
+                         bg-[#003594] text-white px-3 py-1.5 rounded-full shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#FFD100]"></span>
                 Boss
             </span>
-        @else
-            <span class="text-[10px] font-bold tracking-[0.1em] uppercase bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">Supervisor</span>
-        @endif
+            @else
+            <span class="inline-flex items-center gap-1.5 text-[9px] font-bold tracking-[0.15em] uppercase
+                         bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full">
+                Supervisor
+            </span>
+            @endif
+            <span class="text-[11px] text-gray-400 font-medium">
+                {{ now()->locale('es')->isoFormat('dddd, D [de] MMMM') }}
+            </span>
+        </div>
+        <h1 class="text-[26px] font-black text-gray-900 leading-none tracking-tight">
+            @if($isBoss) Red Operativa @else Centro de Control @endif
+        </h1>
+        <p class="text-[12px] text-gray-400 mt-1.5">
+            @if($isBoss)
+            Monitoreo en tiempo real · todas las sucursales
+            @else
+            Panel de supervisión operacional
+            @endif
+        </p>
+    </div>
+
+    {{-- Action badges --}}
+    <div class="flex items-center gap-2 flex-wrap">
         @can('closings.approve')
         @if($pendingClosings > 0)
         <a href="{{ route('cash-closings.pending') }}"
-           class="flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors">
-            <span class="w-[6px] h-[6px] rounded-full bg-amber-400 shrink-0"></span>
+           class="flex items-center gap-2 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80
+                  px-3.5 py-2 rounded-xl hover:bg-amber-100 transition-colors shadow-sm">
+            <span class="relative flex h-[6px] w-[6px] shrink-0">
+                <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-amber-400"></span>
+                <span class="relative inline-flex rounded-full h-[6px] w-[6px] bg-amber-400"></span>
+            </span>
             {{ $pendingClosings }} cierre{{ $pendingClosings !== 1 ? 's' : '' }} pendiente{{ $pendingClosings !== 1 ? 's' : '' }}
         </a>
         @endif
         @endcan
         @if($alertCount > 0)
         <a href="{{ route('inventory.index') }}"
-           class="flex items-center gap-1.5 text-[12px] font-semibold text-red-700 bg-red-50 border border-red-200/80 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-            <span class="relative flex h-[7px] w-[7px] shrink-0">
+           class="flex items-center gap-2 text-[12px] font-semibold text-red-700 bg-red-50 border border-red-200/80
+                  px-3.5 py-2 rounded-xl hover:bg-red-100 transition-colors shadow-sm">
+            <span class="relative flex h-[6px] w-[6px] shrink-0">
                 <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-red-400"></span>
-                <span class="relative inline-flex rounded-full h-[7px] w-[7px] bg-red-500"></span>
+                <span class="relative inline-flex rounded-full h-[6px] w-[6px] bg-red-500"></span>
             </span>
-            {{ $alertCount }} alerta{{ $alertCount !== 1 ? 's' : '' }}
+            {{ $alertCount }} alerta{{ $alertCount !== 1 ? 's' : '' }} inventario
         </a>
         @endif
         @if($pendingReceiptsCount > 0)
         <a href="{{ route('inventory-receipts.index') }}"
-           class="flex items-center gap-1.5 text-[12px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+           class="flex items-center gap-2 text-[12px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80
+                  px-3.5 py-2 rounded-xl hover:bg-indigo-100 transition-colors shadow-sm">
             <span class="w-[6px] h-[6px] rounded-full bg-indigo-400 shrink-0"></span>
             {{ $pendingReceiptsCount }} recepción{{ $pendingReceiptsCount !== 1 ? 'es' : '' }}
         </a>
+        @endif
+        @if($isBoss && $pendingClosings === 0 && $alertCount === 0)
+        <span class="flex items-center gap-2 text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60
+                     px-3.5 py-2 rounded-xl">
+            <span class="relative flex h-[6px] w-[6px] shrink-0">
+                <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                <span class="relative inline-flex rounded-full h-[6px] w-[6px] bg-emerald-500"></span>
+            </span>
+            Todo operativo
+        </span>
         @endif
     </div>
 </div>
 
 {{-- ══════════════════════════════════════════════════════
-     BOSS: LIVE CASH OVERVIEW
+     BOSS: EXECUTIVE CONTROL TOWER (15-second command view)
 ══════════════════════════════════════════════════════ --}}
 @if($isBoss)
-<div>
-    <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-            <span class="relative flex h-1.5 w-1.5 shrink-0">
-                <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
-                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-            <h2 class="section-label">Cajas en Vivo</h2>
-        </div>
-        <a href="{{ route('cash-sessions.index') }}" class="text-[11px] font-medium text-stock-primary hover:underline">Ver sesiones →</a>
-    </div>
-    @livewire('boss-live-overview')
-</div>
+@livewire('executive-control-tower')
 @endif
 
 {{-- ══════════════════════════════════════════════════════
-     KPI STRIP — LIVE (Livewire, 30s poll, Alpine animated)
+     BOSS: NETWORK MONEY HERO — no wrapper, full dominance
+══════════════════════════════════════════════════════ --}}
+@if($isBoss)
+@livewire('boss-live-overview')
+@endif
+
+{{-- ══════════════════════════════════════════════════════
+     KPI STRIP — LIVE
 ══════════════════════════════════════════════════════ --}}
 @livewire('live-kpi-strip')
+
+{{-- ══════════════════════════════════════════════════════
+     OPERATIONAL COPILOT
+══════════════════════════════════════════════════════ --}}
+@if($isBoss)
+@livewire('operational-copilot')
+@endif
+
+{{-- ══════════════════════════════════════════════════════
+     INTELLIGENCE FEED
+══════════════════════════════════════════════════════ --}}
+@if($isBoss)
+@livewire('intelligence-feed')
+@endif
 
 {{-- ══════════════════════════════════════════════════════
      MAIN ROW (3:2) — sales chart + alerts/closings
@@ -90,7 +132,7 @@
             <a href="{{ route('reports.sales') }}" class="text-[11px] font-medium text-stock-primary hover:underline">Ver reporte →</a>
         </div>
         <div class="px-6 py-5">
-            <div class="h-[200px]">
+            <div class="h-[220px]">
                 <canvas id="chartSemana"></canvas>
             </div>
         </div>
@@ -104,9 +146,12 @@
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
                 <h3 class="text-[13px] font-semibold text-gray-800">Stock Crítico</h3>
                 @if($alertCount > 0)
-                <span class="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-full">{{ $alertCount }}</span>
+                <span class="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200/80 px-2.5 py-0.5 rounded-full">{{ $alertCount }}</span>
                 @else
-                <span class="text-[10px] font-semibold text-emerald-600">Normal</span>
+                <span class="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600">
+                    <span class="w-1 h-1 rounded-full bg-emerald-400"></span>
+                    Normal
+                </span>
                 @endif
             </div>
             <div class="divide-y divide-gray-50/80 overflow-y-auto flex-1 max-h-[180px]">
@@ -148,9 +193,14 @@
                 <h3 class="text-[13px] font-semibold text-gray-800">Cierres Pendientes</h3>
                 @if($pendingClosings > 0)
                 <a href="{{ route('cash-closings.pending') }}"
-                   class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors">{{ $pendingClosings }}</a>
+                   class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors">
+                    {{ $pendingClosings }}
+                </a>
                 @else
-                <span class="text-[10px] font-semibold text-emerald-600">Al día</span>
+                <span class="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600">
+                    <span class="w-1 h-1 rounded-full bg-emerald-400"></span>
+                    Al día
+                </span>
                 @endif
             </div>
             @forelse($pendingCashClosings as $closing)
@@ -162,7 +212,9 @@
                 <div class="text-right ml-3 shrink-0">
                     <p class="text-[13px] font-bold text-gray-800 tabular-nums">${{ number_format($closing->total_sistema, 0) }}</p>
                     @if($closing->diferencia != 0)
-                        <p class="text-[11px] font-semibold tabular-nums {{ $closing->diferencia < 0 ? 'text-red-500' : 'text-emerald-500' }}">{{ $closing->diferencia > 0 ? '+' : '' }}${{ number_format(abs($closing->diferencia), 2) }}</p>
+                        <p class="text-[11px] font-semibold tabular-nums {{ $closing->diferencia < 0 ? 'text-red-500' : 'text-emerald-500' }}">
+                            {{ $closing->diferencia > 0 ? '+' : '' }}${{ number_format(abs($closing->diferencia), 2) }}
+                        </p>
                     @else
                         <p class="text-[11px] text-emerald-500 font-semibold">Exacto</p>
                     @endif
@@ -201,7 +253,7 @@
             @forelse($topProducts as $i => $product)
             <div class="flex items-center gap-3 px-5 py-2.5 {{ !$loop->last ? 'border-b border-gray-50' : '' }} hover:bg-gray-50/50 transition-colors">
                 <span class="text-[11px] font-bold w-5 text-center shrink-0
-                    {{ $i === 0 ? 'text-stock-accent' : ($i < 3 ? 'text-gray-400' : 'text-gray-300') }}">{{ $i + 1 }}</span>
+                    {{ $i === 0 ? 'text-[#FFD100]' : ($i < 3 ? 'text-gray-400' : 'text-gray-300') }}">{{ $i + 1 }}</span>
                 <div class="flex-1 min-w-0">
                     <p class="text-[12px] font-semibold text-gray-800 truncate">{{ $product->nombre }}</p>
                     <p class="text-[10px] text-gray-400 mt-0.5 tabular-nums">{{ number_format($product->unidades) }} uds.</p>
@@ -215,9 +267,7 @@
             @endforelse
         </div>
 
-        {{-- ── ALERT CENTER (boss / supervisor) ────────────────────
-             Bloomberg-style anomaly feed with force-close actions
-        ──────────────────────────────────────────────────────── --}}
+        {{-- Alert Center --}}
         <div class="flex-1 min-h-0">
             @livewire('boss-alert-center')
         </div>
@@ -242,7 +292,7 @@
                 borderColor: '#003594',
                 backgroundColor: (c) => {
                     const g = c.chart.ctx.createLinearGradient(0, 0, 0, c.chart.height);
-                    g.addColorStop(0, 'rgba(0,53,148,0.09)');
+                    g.addColorStop(0, 'rgba(0,53,148,0.10)');
                     g.addColorStop(1, 'rgba(0,53,148,0)');
                     return g;
                 },

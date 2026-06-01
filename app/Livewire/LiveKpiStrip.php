@@ -28,7 +28,6 @@ class LiveKpiStrip extends Component
     public function mount(): void
     {
         $this->isBoss = Auth::user()?->isBoss() ?? false;
-        $this->refresh();
     }
 
     public function render()

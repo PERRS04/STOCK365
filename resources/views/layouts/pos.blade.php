@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>STOCK365 — POS Terminal</title>
+    <title>STOCK365 — Terminal POS</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900&display=swap" rel="stylesheet" />
 
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -16,20 +16,20 @@
     <style>
         [x-cloak] { display: none !important; }
 
-        /* ── POS animations ─────────────────────────────── */
+        /* ── POS Animations ──────────────────────────────────── */
 
         @keyframes cartSlideIn {
-            from { opacity: 0; transform: translateY(-6px); }
-            to   { opacity: 1; transform: translateY(0);    }
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         .cart-slide-in { animation: cartSlideIn 180ms cubic-bezier(0, 0, 0.2, 1) both; }
 
         @keyframes totalPop {
-            0%   { transform: scale(1);    }
-            45%  { transform: scale(1.04); }
-            100% { transform: scale(1);    }
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
-        .total-pop { animation: totalPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        .total-pop { animation: totalPop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
         @keyframes checkDraw {
             to { stroke-dashoffset: 0; }
@@ -41,29 +41,32 @@
         }
 
         @keyframes qtyBump {
-            0%   { transform: scale(1);   }
-            45%  { transform: scale(1.4); }
-            100% { transform: scale(1);   }
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.45); }
+            100% { transform: scale(1); }
         }
         .qty-bump { animation: qtyBump 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
         @keyframes cardPress {
-            0%, 100% { transform: scale(1);    }
+            0%, 100% { transform: scale(1); }
             50%       { transform: scale(0.96); }
         }
         .card-press { animation: cardPress 120ms ease-out; }
 
-        /* Scrollbar minimal */
+        /* Minimal scrollbar */
         .pos-scroll::-webkit-scrollbar { width: 4px; }
         .pos-scroll::-webkit-scrollbar-track { background: transparent; }
         .pos-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 99px; }
 
-        /* Marca pills scrollbar hidden */
+        /* Horizontal pills: hide scrollbar */
         .pills-scroll::-webkit-scrollbar { display: none; }
         .pills-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Prevent layout jump from x-cloak transitions */
+        [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="font-sans antialiased h-screen flex flex-col overflow-hidden bg-[#f0f2f8]">
+<body class="font-sans antialiased h-screen flex flex-col overflow-hidden bg-[#f4f6fb]">
 
     <x-local-env-badge />
 
@@ -71,51 +74,76 @@
     @php
         $posUser = auth()->user();
         $posSede = $posUser->sede?->nombre ?? '—';
+        $posSession = \App\Models\CashSession::where('user_id', $posUser->id)->where('status', 'open')->latest()->first();
     @endphp
-    <header class="h-10 bg-[#003594] flex items-center px-4 gap-3 shrink-0 z-10 select-none">
+    <header class="h-13 bg-[#001f5e] flex items-center px-5 gap-4 shrink-0 z-10 select-none"
+            style="background: linear-gradient(90deg, #001240 0%, #003594 60%, #0044bb 100%); height: 52px;">
 
         {{-- Brand --}}
-        <div class="flex items-center gap-2 shrink-0">
-            <span class="text-[12px] font-black text-white tracking-tight leading-none">
+        <div class="flex items-center gap-2.5 shrink-0">
+            <span class="text-[13px] font-black text-white tracking-tight leading-none">
                 STOCK<span class="text-[#FFD100]">365</span>
             </span>
-            <span class="w-px h-3.5 bg-white/20"></span>
-            <span class="text-[10px] font-semibold text-white/50 uppercase tracking-widest">POS</span>
+            <span class="w-px h-4 bg-white/15"></span>
+            <span class="text-[9px] font-bold text-white/40 uppercase tracking-[0.2em]">POS</span>
         </div>
 
-        {{-- Sede --}}
-        <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-            <span class="text-[11px] text-white/75 font-medium truncate max-w-[120px]">{{ $posSede }}</span>
+        <span class="w-px h-4 bg-white/15"></span>
+
+        {{-- Sede status --}}
+        <div class="flex items-center gap-2">
+            <span class="relative flex h-1.5 w-1.5 shrink-0">
+                <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+            </span>
+            <span class="text-[12px] text-white/80 font-semibold truncate max-w-[140px]">{{ $posSede }}</span>
         </div>
+
+        {{-- Session metrics (if session active) --}}
+        @if($posSession)
+        <span class="hidden sm:block w-px h-4 bg-white/15"></span>
+        <div class="hidden sm:flex items-center gap-3 text-[11px] text-white/50">
+            <span class="tabular-nums">
+                <span class="text-white/30 mr-1">Desde</span>
+                <span class="text-white/70 font-semibold">{{ $posSession->opened_at->format('H:i') }}</span>
+            </span>
+            @if($posSession->sales_count > 0)
+            <span class="w-px h-3 bg-white/15"></span>
+            <span class="tabular-nums">
+                <span class="text-emerald-400 font-bold">{{ $posSession->sales_count }}</span>
+                <span class="text-white/30 ml-0.5">ventas</span>
+            </span>
+            @endif
+        </div>
+        @endif
 
         <div class="flex-1"></div>
 
-        {{-- Keyboard hints --}}
-        <div class="hidden lg:flex items-center gap-4 text-[10px] text-white/35">
-            <span><kbd class="bg-white/10 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/55">Ctrl+B</kbd> buscar</span>
-            <span><kbd class="bg-white/10 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/55">↵</kbd> añadir</span>
-            <span><kbd class="bg-white/10 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/55">F2</kbd> cobrar</span>
-            <span><kbd class="bg-white/10 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/55">Esc</kbd> cancelar</span>
+        {{-- Keyboard shortcuts --}}
+        <div class="hidden lg:flex items-center gap-4 text-[10px] text-white/30">
+            <span><kbd class="bg-white/8 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/45">Ctrl+B</kbd> buscar</span>
+            <span><kbd class="bg-white/8 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/45">↵</kbd> añadir</span>
+            <span><kbd class="bg-white/8 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/45">F2</kbd> cobrar</span>
+            <span><kbd class="bg-white/8 rounded px-1.5 py-0.5 font-mono text-[9px] text-white/45">Esc</kbd> cancelar</span>
         </div>
 
-        <span class="hidden lg:block w-px h-4 bg-white/20"></span>
+        <span class="hidden lg:block w-px h-4 bg-white/15"></span>
 
         {{-- Operator --}}
-        <div class="flex items-center gap-1.5">
-            <div class="w-5 h-5 rounded-full bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                <span class="text-[9px] font-bold text-white leading-none">{{ strtoupper(substr($posUser->name, 0, 1)) }}</span>
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-white/12 border border-white/15 flex items-center justify-center shrink-0">
+                <span class="text-[10px] font-bold text-white leading-none">{{ strtoupper(substr($posUser->name, 0, 1)) }}</span>
             </div>
-            <span class="hidden sm:block text-[11px] text-white/65 font-medium max-w-[90px] truncate">{{ explode(' ', $posUser->name)[0] }}</span>
+            <span class="hidden sm:block text-[11px] text-white/60 font-medium max-w-[100px] truncate">{{ explode(' ', $posUser->name)[0] }}</span>
         </div>
 
-        <span class="w-px h-4 bg-white/20"></span>
+        <span class="w-px h-4 bg-white/15"></span>
 
-        {{-- Dashboard --}}
+        {{-- Dashboard link --}}
         <a href="{{ route('dashboard') }}"
-           class="flex items-center gap-1 text-[11px] text-white/45 hover:text-white/80 transition-colors leading-none">
+           class="flex items-center gap-1.5 text-[11px] text-white/40 hover:text-white/75 transition-colors duration-150">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
             </svg>
             <span class="hidden xl:inline">Dashboard</span>
         </a>
@@ -130,7 +158,7 @@
     <div
         x-data="toastSystem()"
         @toast.window="addToast($event.detail)"
-        class="fixed top-12 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
+        class="fixed top-14 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
         style="min-width:280px;max-width:380px"
     >
         <template x-for="t in toasts" :key="t.id">
@@ -142,7 +170,7 @@
                 x-transition:leave="transition ease-in duration-150"
                 x-transition:leave-start="opacity-100"
                 x-transition:leave-end="opacity-0 scale-95"
-                class="pointer-events-auto flex items-start gap-3 px-3.5 py-2.5 rounded-xl shadow-card-lg border text-sm backdrop-blur-sm"
+                class="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl shadow-lg border text-sm backdrop-blur-sm"
                 :class="{
                     'bg-white/95 border-emerald-200 text-emerald-800': t.type === 'success',
                     'bg-white/95 border-red-200   text-red-800':       t.type === 'error',
@@ -152,7 +180,7 @@
             >
                 <span class="flex-1 font-medium text-[12px]" x-text="t.message"></span>
                 <button @click="remove(t.id)" class="flex-shrink-0 opacity-40 hover:opacity-80 transition-opacity">
-                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                     </svg>
                 </button>

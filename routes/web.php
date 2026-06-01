@@ -147,4 +147,9 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     Route::resource('sedes', SedeController::class);
     Route::resource('users', UserController::class);
     Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
+
+    // ── Workforce Intelligence (boss only) ────────────────────────────────────
+    Route::get('/equipo/inteligencia', fn () => view('workforce.dashboard'))
+        ->middleware('boss')
+        ->name('workforce.dashboard');
 });

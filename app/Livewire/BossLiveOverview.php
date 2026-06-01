@@ -4,14 +4,14 @@ namespace App\Livewire;
 
 use App\Models\CashClosing;
 use App\Models\CashSession;
-use App\Services\LiveCashBoxService;
+use App\Services\LiveCashEngine\LiveCashEngineService;
 use Livewire\Component;
 
 class BossLiveOverview extends Component
 {
     public function render()
     {
-        $service = new LiveCashBoxService();
+        $service = app(LiveCashEngineService::class);
 
         $activeSessions = CashSession::whereIn('status', ['open', 'pending_closing'])
             ->with('user:id,name', 'sede:id,nombre')

@@ -95,6 +95,7 @@ class LiveCashEngineService
             ->latest('fecha_venta')
             ->limit(20)
             ->get()
+            ->toBase()
             ->map(fn ($s) => new CashRealtimeEvent(
                 id:        "sale_{$s->id}",
                 type:      CashEventType::SALE,
@@ -115,6 +116,7 @@ class LiveCashEngineService
             ->latest('approved_at')
             ->limit(10)
             ->get()
+            ->toBase()
             ->map(fn ($m) => new CashRealtimeEvent(
                 id:        "mov_{$m->id}",
                 type:      in_array($m->type, self::DEBIT_TYPES)
@@ -135,6 +137,7 @@ class LiveCashEngineService
             ->latest()
             ->limit(5)
             ->get()
+            ->toBase()
             ->map(fn ($m) => new CashRealtimeEvent(
                 id:        "pending_mov_{$m->id}",
                 type:      CashEventType::PENDING_MOVEMENT,
@@ -156,6 +159,7 @@ class LiveCashEngineService
             ->latest()
             ->limit(5)
             ->get()
+            ->toBase()
             ->map(fn ($c) => new CashRealtimeEvent(
                 id:        "courtesy_{$c->id}",
                 type:      CashEventType::COURTESY,
@@ -177,6 +181,7 @@ class LiveCashEngineService
             ->latest()
             ->limit(3)
             ->get()
+            ->toBase()
             ->map(fn ($c) => new CashRealtimeEvent(
                 id:        "pending_courtesy_{$c->id}",
                 type:      CashEventType::PENDING_COURTESY,
