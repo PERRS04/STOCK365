@@ -26,14 +26,28 @@ class DashboardController extends Controller
         $today  = now()->toDateString();
         $isBoss = Auth::user()->isBoss();
 
+        $demoIds = Sede::demoIds();
+        $isDemo  = str_starts_with(Auth::user()->email ?? '', 'demo-')
+                   || (bool) Auth::user()->sede?->is_demo;
+
         // ── KPIs ──────────────────────────────────────────────────────────────
-        $totalSalesToday = Sale::whereDate('fecha_venta', $today)->where('estado', 'completada')->sum('total_sistema');
-        $transactionCount = Sale::whereDate('fecha_venta', $today)->where('estado', 'completada')->count();
+        $totalSalesToday = Sale::whereDate('fecha_venta', $today)->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->sum('total_sistema');
+
+        $transactionCount = Sale::whereDate('fecha_venta', $today)->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
         $avgTicket = $transactionCount > 0 ? $totalSalesToday / $transactionCount : 0;
 
         $totalSalesMonth = Sale::whereMonth('fecha_venta', now()->month)
             ->whereYear('fecha_venta', now()->year)
             ->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->sum('total_sistema');
 
         $utilidadHoy = DB::table('sale_items')
@@ -41,17 +55,36 @@ class DashboardController extends Controller
             ->join('products', 'products.id', '=', 'sale_items.product_id')
             ->whereDate('sales.fecha_venta', $today)
             ->where('sales.estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sales.sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sales.sede_id', $demoIds))
             ->sum(DB::raw('sale_items.cantidad * (products.precio_venta - products.precio_compra)'));
 
-        $pendingClosings     = CashClosing::where('estado', 'pendiente')->count();
-        $alertCount          = StockAlert::where('alerta_activa', true)->count();
-        $activeSessionsCount = CashSession::whereIn('status', ['open', 'pending_closing'])->count();
-        $pendingReceiptsCount = InventoryReceipt::where('estado', 'pendiente')->count();
+        $pendingClosings = CashClosing::where('estado', 'pendiente')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
+        $alertCount = StockAlert::where('alerta_activa', true)
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
+        $activeSessionsCount = CashSession::whereIn('status', ['open', 'pending_closing'])
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
+        $pendingReceiptsCount = InventoryReceipt::where('estado', 'pendiente')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
 
         // ── 7-day chart ───────────────────────────────────────────────────────
         $rawSemana = Sale::selectRaw('DATE(fecha_venta) as fecha, SUM(total_sistema) as total')
             ->where('estado', 'completada')
             ->whereBetween('fecha_venta', [now()->subDays(6)->startOfDay(), now()->endOfDay()])
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->groupBy('fecha')
             ->pluck('total', 'fecha');
 
@@ -67,21 +100,31 @@ class DashboardController extends Controller
         // ── Sede stats ────────────────────────────────────────────────────────
         $rawPorSede = Sale::selectRaw('sede_id, SUM(total_sistema) as total')
             ->whereDate('fecha_venta', $today)->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->groupBy('sede_id')->pluck('total', 'sede_id');
 
         $rawTxPorSede = Sale::selectRaw('sede_id, COUNT(*) as total')
             ->whereDate('fecha_venta', $today)->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->groupBy('sede_id')->pluck('total', 'sede_id');
 
         $rawAlertasPorSede = StockAlert::selectRaw('sede_id, COUNT(*) as total')
             ->where('alerta_activa', true)
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->groupBy('sede_id')->pluck('total', 'sede_id');
 
         $rawCierresPorSede = CashClosing::selectRaw('sede_id, COUNT(*) as total')
             ->where('estado', 'pendiente')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->groupBy('sede_id')->pluck('total', 'sede_id');
 
-        $sedes = Sede::where('activa', true)->get();
+        $sedes = $isDemo
+            ? Sede::where('is_demo', true)->get()
+            : Sede::where('activa', true)->where('is_demo', false)->get();
 
         $sedeStats = $sedes->map(fn($sede) => [
             'id'            => $sede->id,
@@ -99,6 +142,8 @@ class DashboardController extends Controller
             ->join('products', 'products.id', '=', 'sale_items.product_id')
             ->where('sales.estado', 'completada')
             ->where('sales.fecha_venta', '>=', now()->subDays(30))
+            ->when($isDemo, fn($q) => $q->whereIn('sales.sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sales.sede_id', $demoIds))
             ->select('products.nombre', 'products.marca', DB::raw('SUM(sale_items.cantidad) as unidades'), DB::raw('SUM(sale_items.subtotal) as ingresos'))
             ->groupBy('products.nombre', 'products.marca')
             ->orderByDesc('unidades')
@@ -107,14 +152,21 @@ class DashboardController extends Controller
 
         // ── Pending closings (compact) ────────────────────────────────────────
         $pendingCashClosings = CashClosing::where('estado', 'pendiente')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->with('sede', 'user')->latest()->take(4)->get();
 
         // ── Critical stock alerts ─────────────────────────────────────────────
         $stockAlerts = StockAlert::where('alerta_activa', true)
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->with('product', 'sede')->orderByRaw('stock_actual ASC')->take(8)->get();
 
         // ── Activity feed (compact) ───────────────────────────────────────────
-        $recentActivity = ActivityLog::with('sede')->latest()->take(7)->get();
+        $recentActivity = ActivityLog::with('sede')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->latest()->take(7)->get();
 
         return view('admin.dashboard', compact(
             'totalSalesToday', 'totalSalesMonth', 'transactionCount', 'avgTicket',

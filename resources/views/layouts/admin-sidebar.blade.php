@@ -1,12 +1,24 @@
 {{-- Sidebar ERP — Boss + Supervisor --}}
 @php
-    $pendingClosingsCount     = \App\Models\CashClosing::where('estado', 'pendiente')->count();
-    $activeAlertCount         = \App\Models\StockAlert::where('alerta_activa', true)->count();
-    $activeSessionsCount      = \App\Models\CashSession::whereIn('status', ['open', 'pending_closing'])->count();
-    $pendingReceiptsCount     = \App\Models\InventoryReceipt::where('estado', 'pendiente')->count();
-    $pendingTransfersCount    = \App\Models\StockTransfer::where('estado', 'pendiente')->count();
-    $pendingCourtesiesCount   = 0; // módulo desactivado temporalmente
-    $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')->count();
+    $_sidebarDemoIds = \App\Models\Sede::demoIds();
+    $_sidebarIsDemo  = str_starts_with(auth()->user()->email ?? '', 'demo-')
+                       || (bool) auth()->user()->sede?->is_demo;
+    $_sd = fn($q) => $q->whereIn('sede_id', $_sidebarDemoIds);
+    $_sp = fn($q) => $q->whereNotIn('sede_id', $_sidebarDemoIds);
+
+    $pendingClosingsCount      = \App\Models\CashClosing::where('estado', 'pendiente')
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+    $activeAlertCount          = \App\Models\StockAlert::where('alerta_activa', true)
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+    $activeSessionsCount       = \App\Models\CashSession::whereIn('status', ['open', 'pending_closing'])
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+    $pendingReceiptsCount      = \App\Models\InventoryReceipt::where('estado', 'pendiente')
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+    $pendingTransfersCount     = \App\Models\StockTransfer::where('estado', 'pendiente')
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+    $pendingCourtesiesCount    = 0; // módulo desactivado temporalmente
+    $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')
+                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
 
     $invOpen      = request()->routeIs('inventory.*', 'products.*', 'kardex.*', 'transfers.*', 'inventory.bulk-load');
     $comprasOpen  = request()->routeIs('inventory-receipts.*', 'suppliers.*', 'purchases.*', 'purchase-suggestions.*', 'purchase-orders.*');

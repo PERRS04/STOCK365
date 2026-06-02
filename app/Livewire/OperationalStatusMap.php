@@ -24,19 +24,28 @@ class OperationalStatusMap extends Component
 
     private function buildNodes(): Collection
     {
-        $sedes = Sede::where('activa', true)->orderBy('nombre')->get();
+        $demoIds = Sede::demoIds();
+        $isDemo  = str_starts_with(Auth::user()->email ?? '', 'demo-')
+                   || (bool) Auth::user()->sede?->is_demo;
+
+        $sedes = $isDemo
+            ? Sede::where('is_demo', true)->orderBy('nombre')->get()
+            : Sede::where('activa', true)->where('is_demo', false)->orderBy('nombre')->get();
 
         $sessions = CashSession::whereIn('status', ['open', 'pending_closing'])
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->with('user:id,name,sede_id')
             ->get()
             ->groupBy('sede_id');
 
         $stockCounts = StockAlert::where('alerta_activa', true)
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->selectRaw('sede_id, count(*) as total')
             ->groupBy('sede_id')
             ->pluck('total', 'sede_id');
 
-        // Operator presence from realtime service (cached 20s)
         $presenceBySede = app(OperationalRealtimeService::class)->getPresenceBySede();
 
         return $sedes->map(function (Sede $sede) use ($sessions, $stockCounts, $presenceBySede) {
@@ -47,16 +56,14 @@ class OperationalStatusMap extends Component
 
             $health = $this->computeHealth($openSessions, $pendingSessions, $stockAlerts);
 
-            // Combine session operators + presence layer
             $sessionOperators = $sedeSessions->pluck('user.name')->filter()->unique();
             $presence         = $presenceBySede->get($sede->id, collect());
 
-            // Mark each operator with presence status
             $operators = $sessionOperators->map(function (string $name) use ($presence) {
                 $p = $presence->firstWhere('name', $name);
                 return [
                     'name'   => $name,
-                    'status' => $p ? $p['status'] : 'idle', // online | idle
+                    'status' => $p ? $p['status'] : 'idle',
                 ];
             })->values();
 

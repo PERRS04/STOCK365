@@ -4,26 +4,24 @@ namespace App\Livewire;
 
 use App\Models\CashClosing;
 use App\Models\CashSession;
-use App\Models\InventoryReceipt;
 use App\Models\Sale;
+use App\Models\Sede;
 use App\Models\StockAlert;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class LiveKpiStrip extends Component
 {
-    // Exposed as public so Alpine's $wire.$watch() can observe changes.
-    public float $totalSalesToday  = 0;
-    public float $totalSalesMonth  = 0;
-    public int   $transactionCount = 0;
-    public float $avgTicket        = 0;
-    public float $utilidadHoy      = 0;
-    public int   $pendingClosings  = 0;
-    public int   $alertCount       = 0;
+    public float $totalSalesToday     = 0;
+    public float $totalSalesMonth     = 0;
+    public int   $transactionCount    = 0;
+    public float $avgTicket           = 0;
+    public float $utilidadHoy         = 0;
+    public int   $pendingClosings     = 0;
+    public int   $alertCount          = 0;
     public int   $activeSessionsCount = 0;
-    public bool  $isBoss           = false;
+    public bool  $isBoss              = false;
 
     public function mount(): void
     {
@@ -39,10 +37,15 @@ class LiveKpiStrip extends Component
 
     private function refresh(): void
     {
-        $today = now()->toDateString();
+        $today   = now()->toDateString();
+        $demoIds = Sede::demoIds();
+        $isDemo  = str_starts_with(Auth::user()->email ?? '', 'demo-')
+                   || (bool) Auth::user()->sede?->is_demo;
 
         $salesToday = Sale::whereDate('fecha_venta', $today)
             ->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total_sistema),0) as total')
             ->first();
 
@@ -55,6 +58,8 @@ class LiveKpiStrip extends Component
         $this->totalSalesMonth = (float) Sale::whereMonth('fecha_venta', now()->month)
             ->whereYear('fecha_venta', now()->year)
             ->where('estado', 'completada')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->sum('total_sistema');
 
         if ($this->isBoss) {
@@ -63,11 +68,24 @@ class LiveKpiStrip extends Component
                 ->join('products', 'products.id', '=', 'sale_items.product_id')
                 ->whereDate('sales.fecha_venta', $today)
                 ->where('sales.estado', 'completada')
+                ->when($isDemo, fn($q) => $q->whereIn('sales.sede_id', $demoIds),
+                                fn($q) => $q->whereNotIn('sales.sede_id', $demoIds))
                 ->sum(DB::raw('sale_items.cantidad * (products.precio_venta - products.precio_compra)'));
         }
 
-        $this->pendingClosings      = CashClosing::where('estado', 'pendiente')->count();
-        $this->alertCount           = StockAlert::where('alerta_activa', true)->count();
-        $this->activeSessionsCount  = CashSession::whereIn('status', ['open', 'pending_closing'])->count();
+        $this->pendingClosings = CashClosing::where('estado', 'pendiente')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
+        $this->alertCount = StockAlert::where('alerta_activa', true)
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
+
+        $this->activeSessionsCount = CashSession::whereIn('status', ['open', 'pending_closing'])
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->count();
     }
 }
