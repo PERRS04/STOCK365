@@ -85,28 +85,33 @@ class ExecutiveIntelligenceEngine
             default            => 'stable',
         };
 
-        // ── 4. Operational pressure (fast counts — no heavy joins) ──────────
-        $inventoryAlerts   = StockAlert::where('alerta_activa', true)->count();
-        $pendingMovements  = CashMovement::where('status', 'pendiente')->count();
-        $pendingCourtesies = CourtesyTransaction::where('status', 'pendiente')->count();
-        $pendingClosings   = CashClosing::where('estado', 'pendiente')->count();
-        $pendingTotal      = $pendingMovements + $pendingCourtesies + $pendingClosings;
-        $activeSessions    = CashSession::active()->count();
+        // ── 4. Operational pressure (fast counts — excludes demo sedes) ────────
+        $demoIds = \App\Models\Sede::demoIds();
 
-        // ── 5. Sales KPIs ────────────────────────────────────────────────────
-        $salesToday = Sale::whereDate('fecha_venta', today())
+        $inventoryAlerts   = StockAlert::whereNotIn('sede_id', $demoIds)->where('alerta_activa', true)->count();
+        $pendingMovements  = CashMovement::whereNotIn('sede_id', $demoIds)->where('status', 'pendiente')->count();
+        $pendingCourtesies = CourtesyTransaction::whereNotIn('sede_id', $demoIds)->where('status', 'pendiente')->count();
+        $pendingClosings   = CashClosing::whereNotIn('sede_id', $demoIds)->where('estado', 'pendiente')->count();
+        $pendingTotal      = $pendingMovements + $pendingCourtesies + $pendingClosings;
+        $activeSessions    = CashSession::whereNotIn('sede_id', $demoIds)->active()->count();
+
+        // ── 5. Sales KPIs (excludes demo) ───────────────────────────────────
+        $salesToday = Sale::whereNotIn('sede_id', $demoIds)
+            ->whereDate('fecha_venta', today())
             ->where('estado', 'completada')
             ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total_sistema),0) as total')
             ->first();
 
-        $salesMonth = (float) Sale::whereMonth('fecha_venta', now()->month)
+        $salesMonth = (float) Sale::whereNotIn('sede_id', $demoIds)
+            ->whereMonth('fecha_venta', now()->month)
             ->whereYear('fecha_venta', now()->year)
             ->where('estado', 'completada')
             ->sum('total_sistema');
 
-        // ── 6. Workforce ─────────────────────────────────────────────────────
+        // ── 6. Workforce (excludes demo) ─────────────────────────────────────
         $weekStart = now()->startOfWeek()->toDateString();
-        $allScores = WorkforcePerformanceScore::where('period_type', 'weekly')
+        $allScores = WorkforcePerformanceScore::whereNotIn('sede_id', $demoIds)
+            ->where('period_type', 'weekly')
             ->where('period_start', $weekStart)
             ->with('user:id,name,sede_id')
             ->orderByDesc('total_score')

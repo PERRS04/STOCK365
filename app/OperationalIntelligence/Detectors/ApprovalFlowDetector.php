@@ -32,7 +32,10 @@ class ApprovalFlowDetector implements DetectorContract
 
     private function detectStaleCashMovements(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = CashMovement::where('status', 'pendiente')
+            ->whereNotIn('sede_id', $demoIds)
             ->where('created_at', '<=', now()->subMinutes(self::MOV_WAIT_MIN))
             ->selectRaw('sede_id, COUNT(*) as cnt, MIN(created_at) as oldest')
             ->groupBy('sede_id')
@@ -67,7 +70,10 @@ class ApprovalFlowDetector implements DetectorContract
 
     private function detectStaleCourtesies(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = CourtesyTransaction::where('status', 'pendiente')
+            ->whereNotIn('sede_id', $demoIds)
             ->where('created_at', '<=', now()->subMinutes(self::COURTESY_WAIT_MIN))
             ->selectRaw('sede_id, COUNT(*) as cnt, MIN(created_at) as oldest')
             ->groupBy('sede_id')
@@ -102,7 +108,10 @@ class ApprovalFlowDetector implements DetectorContract
 
     private function detectStaleClosings(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = CashClosing::where('estado', 'pendiente')
+            ->whereNotIn('sede_id', $demoIds)
             ->where('created_at', '<=', now()->subMinutes(self::CLOSING_WAIT_MIN))
             ->selectRaw('sede_id, COUNT(*) as cnt, MIN(created_at) as oldest')
             ->groupBy('sede_id')

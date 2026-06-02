@@ -27,8 +27,10 @@ class CashflowDetector implements DetectorContract
     public function detect(): Collection
     {
         $signals = collect();
+        $demoIds = Sede::demoIds();
 
         $sessions = CashSession::whereIn('status', ['open', 'pending_closing'])
+            ->whereNotIn('sede_id', $demoIds)
             ->with('user:id,name', 'sede:id,nombre')
             ->get();
 
@@ -175,7 +177,10 @@ class CashflowDetector implements DetectorContract
 
     private function detectClosingAnomalies(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = CashClosing::where('created_at', '>=', now()->subDays(7))
+            ->whereNotIn('sede_id', $demoIds)
             ->whereRaw('ABS(diferencia) > 5')
             ->selectRaw('user_id, COUNT(*) as cnt, SUM(ABS(diferencia)) as total_diff, MAX(created_at) as last_at')
             ->groupBy('user_id')

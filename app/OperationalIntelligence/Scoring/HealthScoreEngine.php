@@ -20,6 +20,7 @@ class HealthScoreEngine
     public function scoreAll(): Collection
     {
         return Sede::where('activa', true)
+            ->where('is_demo', false)
             ->orderBy('nombre')
             ->get()
             ->map(fn ($sede) => array_merge(

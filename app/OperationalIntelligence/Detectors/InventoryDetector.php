@@ -5,6 +5,7 @@ namespace App\OperationalIntelligence\Detectors;
 use App\Enums\SignalSeverity;
 use App\Enums\SignalType;
 use App\Models\Inventory;
+use App\Models\Sede;
 use App\OperationalIntelligence\Contracts\DetectorContract;
 use App\Values\OperationalSignal;
 use Carbon\Carbon;
@@ -30,7 +31,10 @@ class InventoryDetector implements DetectorContract
 
     private function detectZeroStock(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $items = Inventory::where('cantidad_stock', '<=', self::CRITICAL_STOCK)
+            ->whereNotIn('sede_id', $demoIds)
             ->with('product:id,nombre,stock_minimo', 'sede:id,nombre')
             ->limit(20)
             ->get();
@@ -61,6 +65,8 @@ class InventoryDetector implements DetectorContract
 
     private function detectVelocityRisk(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('inventories', function ($join) {
@@ -72,6 +78,7 @@ class InventoryDetector implements DetectorContract
             ->where('sales.fecha_venta', '>=', now()->subDays(self::VELOCITY_DAYS))
             ->where('sales.estado', 'completada')
             ->where('inventories.cantidad_stock', '>', 0)
+            ->whereNotIn('sales.sede_id', $demoIds)
             ->selectRaw('
                 sale_items.product_id,
                 sales.sede_id,
@@ -123,8 +130,10 @@ class InventoryDetector implements DetectorContract
     private function detectDeadStock(Collection $signals): void
     {
         $threshold = now()->subDays(self::DEAD_STOCK_DAYS);
+        $demoIds   = Sede::demoIds();
 
         $items = Inventory::where('cantidad_stock', '>', 0)
+            ->whereNotIn('sede_id', $demoIds)
             ->where(function ($q) use ($threshold) {
                 $q->where('ultima_actualizacion', '<', $threshold)
                   ->orWhereNull('ultima_actualizacion');

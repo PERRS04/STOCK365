@@ -33,7 +33,10 @@ class OperatorBehaviorDetector implements DetectorContract
 
     private function detectExcessCourtesies(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = CourtesyTransaction::where('created_at', '>=', now()->startOfDay())
+            ->whereNotIn('sede_id', $demoIds)
             ->whereIn('status', ['pendiente', 'aprobado'])
             ->selectRaw('user_id, sede_id, COUNT(*) as cnt')
             ->groupBy('user_id', 'sede_id')
@@ -73,9 +76,11 @@ class OperatorBehaviorDetector implements DetectorContract
     private function detectIdleOperators(Collection $signals): void
     {
         $idleThreshold = now()->subHours(self::IDLE_HOURS);
+        $demoIds       = Sede::demoIds();
 
         $sessions = CashSession::where('status', 'open')
             ->whereDate('opened_at', today())
+            ->whereNotIn('sede_id', $demoIds)
             ->with('user:id,name', 'sede:id,nombre')
             ->get();
 
@@ -112,7 +117,10 @@ class OperatorBehaviorDetector implements DetectorContract
 
     private function detectEscalationPattern(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = ActivityLog::where('action', 'operational_lock_escalation')
+            ->whereNotIn('sede_id', $demoIds)
             ->where('created_at', '>=', now()->subHours(4))
             ->selectRaw('user_id, user_name, sede_id, COUNT(*) as cnt, MAX(created_at) as last_at')
             ->groupBy('user_id', 'user_name', 'sede_id')
@@ -148,7 +156,10 @@ class OperatorBehaviorDetector implements DetectorContract
 
     private function detectOffHoursActivity(Collection $signals): void
     {
+        $demoIds = Sede::demoIds();
+
         $rows = ActivityLog::where('created_at', '>=', now()->subDay())
+            ->whereNotIn('sede_id', $demoIds)
             ->where(function ($q) {
                 $q->whereTime('created_at', '>=', '23:00:00')
                   ->orWhereTime('created_at', '<=', '05:30:00');

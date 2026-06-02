@@ -170,6 +170,26 @@
                 </div>
             </header>
 
+            {{-- Demo Environment Banner --}}
+            @php
+                $isDemoSession = auth()->user()->sede?->is_demo
+                    || str_starts_with(auth()->user()->email ?? '', 'demo-');
+            @endphp
+            @if($isDemoSession)
+            <div class="shrink-0 h-8 flex items-center justify-center gap-3
+                        bg-amber-400 border-b border-amber-500/40 select-none">
+                <svg class="w-3.5 h-3.5 text-amber-900 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-900">
+                    Demo Environment · STOCK365 Demo Center
+                </span>
+                <span class="hidden sm:inline text-[10px] text-amber-800/70 font-medium">
+                    · Los datos aquí no afectan producción
+                </span>
+            </div>
+            @endif
+
             {{-- Page Content --}}
             <main class="flex-1 overflow-auto">
                 <div class="px-8 py-8">
