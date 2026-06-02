@@ -15,7 +15,10 @@
     $pendingReceiptsCount      = \App\Models\InventoryReceipt::where('estado', 'pendiente')
                                     ->when($_sidebarIsDemo, $_sd, $_sp)->count();
     $pendingTransfersCount     = \App\Models\StockTransfer::where('estado', 'pendiente')
-                                    ->when($_sidebarIsDemo, $_sd, $_sp)->count();
+                                    ->when($_sidebarIsDemo,
+                                        fn($q) => $q->where(fn($q2) => $q2->whereIn('from_sede_id', $_sidebarDemoIds)->orWhereIn('to_sede_id', $_sidebarDemoIds)),
+                                        fn($q) => $q->whereNotIn('from_sede_id', $_sidebarDemoIds)->whereNotIn('to_sede_id', $_sidebarDemoIds)
+                                    )->count();
     $pendingCourtesiesCount    = 0; // módulo desactivado temporalmente
     $pendingCashMovementsCount = \App\Models\CashMovement::where('status', 'pendiente')
                                     ->when($_sidebarIsDemo, $_sd, $_sp)->count();
