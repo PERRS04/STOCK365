@@ -61,14 +61,31 @@
         </template>
     </div>
 
-    <div class="flex h-screen">
+    <div class="flex h-screen" x-data="{ mobileNav: false }">
 
-        {{-- Sidebar --}}
-        @if(auth()->user()->isAdminLevel())
-            @include('layouts.admin-sidebar')
-        @else
-            @include('layouts.operator-sidebar')
-        @endif
+        {{-- Mobile overlay (lg+: never visible) --}}
+        <div x-show="mobileNav"
+             x-cloak
+             x-transition:enter="transition-opacity ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             @click="mobileNav = false"
+             class="fixed inset-0 z-40 bg-black/50 lg:hidden">
+        </div>
+
+        {{-- Sidebar: drawer on mobile / static flex child on lg+ --}}
+        <div class="fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
+                    lg:relative lg:inset-auto lg:z-auto lg:transition-none lg:block lg:shrink-0"
+             :class="mobileNav ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+            @if(auth()->user()->isAdminLevel())
+                @include('layouts.admin-sidebar')
+            @else
+                @include('layouts.operator-sidebar')
+            @endif
+        </div>
 
         {{-- Main --}}
         <div class="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -90,6 +107,14 @@
                 };
             @endphp
             <header class="h-14 bg-white border-b border-gray-200/60 shadow-[0_1px_0_rgba(0,0,0,0.04)] flex items-center justify-between px-6 shrink-0 gap-4">
+
+                {{-- Hamburger (mobile only) --}}
+                <button @click="mobileNav = !mobileNav"
+                        class="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all shrink-0 mr-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
 
                 {{-- Left: Brand + Page title --}}
                 <div class="flex items-center gap-1.5 min-w-0">
@@ -192,7 +217,7 @@
 
             {{-- Page Content --}}
             <main class="flex-1 overflow-auto">
-                <div class="px-8 py-8">
+                <div class="px-4 py-4 lg:px-8 lg:py-8">
                     @yield('content')
                 </div>
             </main>

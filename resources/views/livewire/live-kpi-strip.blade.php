@@ -11,7 +11,7 @@
     {{-- Brand gradient accent --}}
     <div class="h-[3px] bg-gradient-to-r from-stock-primary via-blue-500 to-indigo-400"></div>
 
-    <div class="grid {{ $isBoss ? 'grid-cols-7' : 'grid-cols-6' }} divide-x divide-gray-100/80">
+    <div class="grid {{ $isBoss ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' }} divide-x divide-gray-100/80">
 
         {{-- ── HERO: Ventas Hoy ─────────────────────────────────────────────── --}}
         <div class="px-6 py-5 relative">

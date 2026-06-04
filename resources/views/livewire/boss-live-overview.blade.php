@@ -18,7 +18,7 @@
         </div>
 
         <div style="background:linear-gradient(135deg,#060e1f 0%,#0b1a3d 55%,#003594 100%)"
-             class="flex items-stretch divide-x divide-white/10">
+             class="flex items-stretch divide-x divide-white/10 overflow-x-auto">
 
             {{-- Left: dominant total --}}
             <div class="flex-1 px-10 py-9 flex flex-col justify-center">
