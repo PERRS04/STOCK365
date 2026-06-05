@@ -76,10 +76,11 @@
              class="fixed inset-0 z-40 bg-black/50 lg:hidden">
         </div>
 
-        {{-- Sidebar: drawer on mobile / static flex child on lg+ --}}
-        <div class="fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
+        {{-- Sidebar: full-screen overlay on mobile / static flex child on lg+ --}}
+        <div class="fixed inset-0 z-50 transition-transform duration-300 ease-in-out
                     lg:relative lg:inset-auto lg:z-auto lg:transition-none lg:block lg:shrink-0"
-             :class="mobileNav ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+             :class="mobileNav ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+             @click.self="mobileNav = false">
             @if(auth()->user()->isAdminLevel())
                 @include('layouts.admin-sidebar')
             @else
