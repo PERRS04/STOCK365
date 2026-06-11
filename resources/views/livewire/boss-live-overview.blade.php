@@ -18,14 +18,14 @@
         </div>
 
         <div style="background:linear-gradient(135deg,#060e1f 0%,#0b1a3d 55%,#003594 100%)"
-             class="flex items-stretch divide-x divide-white/10 overflow-x-auto">
+             class="flex flex-col lg:flex-row lg:items-stretch lg:divide-x lg:divide-white/10">
 
             {{-- Left: dominant total --}}
-            <div class="flex-1 px-10 py-9 flex flex-col justify-center">
+            <div class="flex-1 px-6 py-7 lg:px-10 lg:py-9 flex flex-col justify-center">
                 <p style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px">
                     Red de Cajas · En Vivo
                 </p>
-                <p style="font-size:clamp(52px,5.5vw,80px);font-weight:800;line-height:1;letter-spacing:-.02em;
+                <p style="font-size:clamp(36px,5.5vw,80px);font-weight:800;line-height:1;letter-spacing:-.02em;
                     @if($negativeSedes > 0) color:#f87171;
                     @elseif($lowSedes > 0)  color:#fbbf24;
                     @else                   color:#fff;
@@ -38,10 +38,13 @@
                 </p>
             </div>
 
-            {{-- Right: metric strip --}}
-            <div class="flex divide-x divide-white/10 shrink-0">
+            {{-- Right: metric grid — 2 columns on mobile, flex row on desktop --}}
+            <div class="grid grid-cols-2 lg:flex lg:shrink-0
+                        border-t border-white/10 lg:border-t-0 lg:divide-x lg:divide-white/10">
 
-                <div class="px-7 py-7 flex flex-col justify-center min-w-[130px]">
+                {{-- Ventas hoy — always top-left on mobile --}}
+                <div class="px-5 py-5 lg:px-7 lg:py-7 flex flex-col justify-center
+                            border-b border-r border-white/10 lg:border-b-0 lg:border-r-0">
                     <p style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px">
                         Ventas hoy
                     </p>
@@ -51,7 +54,9 @@
                     <p style="color:rgba(255,255,255,0.25);font-size:11px;margin-top:4px">efectivo</p>
                 </div>
 
-                <div class="px-7 py-7 flex flex-col justify-center min-w-[110px]">
+                {{-- Sesiones — always top-right on mobile --}}
+                <div class="px-5 py-5 lg:px-7 lg:py-7 flex flex-col justify-center
+                            border-b border-white/10 lg:border-b-0">
                     <p style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px">
                         Sesiones
                     </p>
@@ -62,8 +67,10 @@
                 </div>
 
                 @if($lowSedes > 0 || $negativeSedes > 0)
-                <div class="px-7 py-7 flex flex-col justify-center min-w-[110px]
-                    @if($negativeSedes > 0) bg-red-900/20 @else bg-amber-900/20 @endif">
+                {{-- Alertas — bottom-left on mobile --}}
+                <div class="px-5 py-5 lg:px-7 lg:py-7 flex flex-col justify-center
+                            border-r border-white/10 lg:border-r-0
+                            @if($negativeSedes > 0) bg-red-900/20 @else bg-amber-900/20 @endif">
                     <p style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px">
                         Alertas
                     </p>
@@ -82,7 +89,9 @@
                 @endif
 
                 @if($pendingClosings > 0)
-                <div class="px-7 py-7 flex flex-col justify-center min-w-[110px] bg-amber-900/10">
+                {{-- Cierres — bottom-right on mobile --}}
+                <div class="px-5 py-5 lg:px-7 lg:py-7 flex flex-col justify-center
+                            border-r border-white/10 lg:border-r-0 bg-amber-900/10">
                     <p style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px">
                         Cierres
                     </p>

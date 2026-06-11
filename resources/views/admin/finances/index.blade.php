@@ -23,7 +23,7 @@
     </div>
 
     {{-- KPI strip --}}
-    <div class="grid grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
             <p class="metric-label">Ventas del Mes</p>
             <p class="metric-value-sm num">${{ number_format($ventasMes, 2) }}</p>
@@ -46,10 +46,10 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-5 gap-5">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
         {{-- Trend chart (6 months) --}}
-        <div class="col-span-3 bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
+        <div class="lg:col-span-3 bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
             <h2 class="text-[13px] font-semibold text-gray-900 mb-4">Tendencia 6 meses</h2>
             <div class="space-y-3">
                 @foreach($trend as $t)
@@ -86,7 +86,7 @@
         </div>
 
         {{-- Right column --}}
-        <div class="col-span-2 space-y-5">
+        <div class="lg:col-span-2 space-y-5">
 
             {{-- Ventas por sede --}}
             <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
@@ -138,7 +138,7 @@
     {{-- Cost breakdown --}}
     <div class="bg-white rounded-2xl border border-gray-200/60 shadow-card p-5">
         <h2 class="text-[13px] font-semibold text-gray-900 mb-4">Desglose de Resultados</h2>
-        <div class="grid grid-cols-4 gap-8 text-[13px]">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-8 text-[13px]">
             <div>
                 <p class="text-gray-400 text-[11px] uppercase tracking-widest mb-1">Ingresos por Ventas</p>
                 <p class="text-[18px] font-bold text-gray-900">+${{ number_format($ventasMes, 2) }}</p>

@@ -57,7 +57,7 @@
     </div>
 
     {{-- Table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden transition-opacity duration-150" wire:loading.class.delay="opacity-60">
+    <div class="bg-white rounded-lg shadow overflow-x-auto transition-opacity duration-150" wire:loading.class.delay="opacity-60">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>

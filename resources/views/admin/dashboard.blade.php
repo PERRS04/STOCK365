@@ -120,10 +120,10 @@
 {{-- ══════════════════════════════════════════════════════
      MAIN ROW (3:2) — sales chart + alerts/closings
 ══════════════════════════════════════════════════════ --}}
-<div class="grid grid-cols-5 gap-5">
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
     {{-- 7-day sales trend --}}
-    <div class="col-span-3 bg-white border border-gray-200/60 rounded-2xl shadow-card">
+    <div class="lg:col-span-3 bg-white border border-gray-200/60 rounded-2xl shadow-card">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
                 <h3 class="text-[13px] font-semibold text-gray-800">Tendencia de Ventas</h3>
@@ -139,7 +139,7 @@
     </div>
 
     {{-- Critical panel: stock alerts + pending closings --}}
-    <div class="col-span-2 flex flex-col gap-4">
+    <div class="lg:col-span-2 flex flex-col gap-4">
 
         {{-- Stock crítico --}}
         <div class="bg-white border border-gray-200/60 rounded-2xl shadow-card flex-1 flex flex-col overflow-hidden">
@@ -234,15 +234,15 @@
 {{-- ══════════════════════════════════════════════════════
      BOTTOM ROW (3:2) — operational status map + top products + alert center
 ══════════════════════════════════════════════════════ --}}
-<div class="grid grid-cols-5 gap-5">
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
     {{-- Realtime Operational Status Map (3/5) --}}
-    <div class="col-span-3">
+    <div class="lg:col-span-3">
         @livewire('operational-status-map')
     </div>
 
     {{-- Right column: top products + alert center (2/5) --}}
-    <div class="col-span-2 flex flex-col gap-4">
+    <div class="lg:col-span-2 flex flex-col gap-4">
 
         {{-- Top 5 products --}}
         <div class="bg-white border border-gray-200/60 rounded-2xl shadow-card overflow-hidden">
