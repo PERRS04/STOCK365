@@ -63,6 +63,38 @@ class CashMovement extends Model
         return in_array($this->type, ['deposito', 'cambio']);
     }
 
+    public function isDeferredPayment(): bool
+    {
+        return $this->type === 'pago_proveedor'
+            && is_null($this->cash_session_id)
+            && $this->status === 'pendiente'
+            && is_null($this->attachment_path);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (CashMovement $movement) {
+            // Scoped to auto-generated receipt payments only (no attachment file)
+            if ($movement->type !== 'pago_proveedor' || !is_null($movement->attachment_path)) {
+                return;
+            }
+
+            // Invariant A: approved receipt payment must have a session
+            if ($movement->status === 'aprobado' && is_null($movement->cash_session_id)) {
+                throw new \DomainException(
+                    'Integridad: pago_proveedor generado por recepción no puede estar aprobado sin sesión de caja.'
+                );
+            }
+
+            // Invariant B: pending receipt payment cannot be assigned a session without also becoming approved
+            if ($movement->exists && $movement->status === 'pendiente' && !is_null($movement->cash_session_id)) {
+                throw new \DomainException(
+                    'Integridad: pago diferido pendiente no puede tener sesión asignada sin transicionar a aprobado simultáneamente.'
+                );
+            }
+        });
+    }
+
     public static function typeLabel(string $type): string
     {
         return match($type) {

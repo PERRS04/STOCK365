@@ -176,6 +176,25 @@ class InventoryReceiptController extends Controller
             'items.*.costo_unitario'    => 'required|numeric|min:0',
         ]);
 
+        $calculatedTotal = round(
+            collect($validated['items'])->sum(
+                fn($item) => (float) $item['cantidad'] * (float) $item['costo_unitario']
+            ),
+            2
+        );
+        $montoPagado = round((float) $receipt->monto_pagado, 2);
+
+        if (abs($calculatedTotal - $montoPagado) > 0.005) {
+            return back()
+                ->withInput()
+                ->with('audit_monto_pagado',    $montoPagado)
+                ->with('audit_monto_calculado', $calculatedTotal)
+                ->with('audit_monto_diferencia', round($montoPagado - $calculatedTotal, 2))
+                ->withErrors([
+                    'monto_items' => 'El total de ítems debe coincidir exactamente con el monto pagado registrado.',
+                ]);
+        }
+
         if ($receipt->sede_id === null) {
             if (empty($validated['sede_id_override'])) {
                 return back()->withErrors(['sede_id_override' => 'Esta recepción no tiene sede asignada. Selecciona la sede de destino antes de aprobar.']);
@@ -241,7 +260,7 @@ class InventoryReceiptController extends Controller
                 'notas_aprobacion' => $validated['notas_aprobacion'] ?? null,
             ]);
 
-            // ── Auto-deduct local portion from the sede's active cash session ────
+            // ── Register supplier payment — always, session or not ───────────────
             $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $receipt->id)
                 ->where('source_type', 'other_branch')
                 ->sum('amount');
@@ -254,19 +273,36 @@ class InventoryReceiptController extends Controller
                     ->latest('opened_at')
                     ->first();
 
-                if ($activeSession) {
-                    CashMovement::create([
-                        'sede_id'         => $receipt->sede_id,
-                        'user_id'         => $receipt->user_id,
-                        'cash_session_id' => $activeSession->id,
-                        'type'            => 'pago_proveedor',
-                        'amount'          => $localAmount,
-                        'motivo'          => "Pago proveedor: {$receipt->supplier_name}",
-                        'observaciones'   => "Recepción #{$receipt->id} aprobada",
-                        'status'          => 'aprobado',
-                        'approved_by'     => auth()->id(),
-                        'approved_at'     => now(),
-                    ]);
+                $movement = CashMovement::create([
+                    'sede_id'         => $receipt->sede_id,
+                    'user_id'         => $receipt->user_id,
+                    'cash_session_id' => $activeSession?->id,
+                    'type'            => 'pago_proveedor',
+                    'amount'          => $localAmount,
+                    'motivo'          => "Pago proveedor: {$receipt->supplier_name}",
+                    'observaciones'   => "Recepción #{$receipt->id} aprobada",
+                    'status'          => $activeSession ? 'aprobado' : 'pendiente',
+                    'approved_by'     => $activeSession ? auth()->id() : null,
+                    'approved_at'     => $activeSession ? now() : null,
+                ]);
+
+                if (! $activeSession) {
+                    ActivityLogger::log(
+                        'receipt.payment.deferred',
+                        "Pago proveedor diferido — sin sesión activa. Recepción #{$receipt->id} · {$receipt->supplier_name} · \${$localAmount}" . ($receipt->sede ? ' · ' . $receipt->sede->nombre : ''),
+                        $receipt,
+                        [],
+                        [
+                            'receipt_id'       => $receipt->id,
+                            'cash_movement_id' => $movement->id,
+                            'sede_id'          => $receipt->sede_id,
+                            'sede'             => $receipt->sede?->nombre,
+                            'proveedor'        => $receipt->supplier_name,
+                            'monto'            => $localAmount,
+                            'aprobador'        => auth()->user()->name,
+                            'aprobado_at'      => now()->toDateTimeString(),
+                        ]
+                    );
                 }
             }
             // ─────────────────────────────────────────────────────────────────────
@@ -296,6 +332,8 @@ class InventoryReceiptController extends Controller
             'notas_aprobacion' => 'required|string|max:1000',
         ]);
 
+        $receipt->load('sede', 'user');
+
         $receipt->update([
             'estado'           => 'rechazado',
             'aprobado_por'     => auth()->id(),
@@ -305,8 +343,22 @@ class InventoryReceiptController extends Controller
 
         ActivityLogger::log(
             'recepcion.rechazada',
-            "Recepción rechazada: {$receipt->supplier_name}" . ($receipt->sede ? " · " . $receipt->sede->nombre : ""),
-            $receipt
+            "Recepción rechazada: {$receipt->supplier_name} · \${$receipt->monto_pagado}" . ($receipt->sede ? " · " . $receipt->sede->nombre : ""),
+            $receipt,
+            [
+                'estado'         => 'pendiente',
+                'monto_pagado'   => $receipt->monto_pagado,
+                'proveedor'      => $receipt->supplier_name,
+                'sede'           => $receipt->sede?->nombre,
+                'registrado_por' => $receipt->user?->name,
+                'registrado_at'  => $receipt->created_at?->toDateTimeString(),
+            ],
+            [
+                'estado'        => 'rechazado',
+                'rechazado_por' => auth()->user()->name,
+                'rechazado_at'  => now()->toDateTimeString(),
+                'motivo'        => $validated['notas_aprobacion'],
+            ]
         );
 
         return redirect()->route('inventory-receipts.index')

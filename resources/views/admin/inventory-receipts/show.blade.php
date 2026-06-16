@@ -115,9 +115,11 @@
             <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
                  x-data="{
                      items: [{ product_id: '', cantidad: 1, costo_unitario: '' }],
+                     montoPagado: {{ $receipt->monto_pagado }},
                      addItem() { this.items.push({ product_id: '', cantidad: 1, costo_unitario: '' }) },
                      removeItem(i) { if(this.items.length > 1) this.items.splice(i, 1) },
-                     total() { return this.items.reduce((s, it) => s + (parseFloat(it.cantidad)||0) * (parseFloat(it.costo_unitario)||0), 0) }
+                     total() { return this.items.reduce((s, it) => s + (parseFloat(it.cantidad)||0) * (parseFloat(it.costo_unitario)||0), 0) },
+                     diffOk() { return Math.abs(this.total() - this.montoPagado) < 0.005 }
                  }">
                 <div class="px-5 py-3.5 border-b border-gray-100">
                     <h2 class="text-[13px] font-semibold text-gray-800">Aprobar recepción — Ingresar productos</h2>
@@ -131,6 +133,27 @@
                         @error('sede_id_override')
                             <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{{ $message }}</p>
                         @enderror
+
+                        @if($errors->has('monto_items'))
+                        <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-[12px] font-bold text-red-700 mb-3">Aprobación bloqueada — discrepancia de montos</p>
+                            <div class="grid grid-cols-3 gap-2 text-center mb-3">
+                                <div class="bg-white rounded-lg border border-red-100 px-3 py-2">
+                                    <p class="text-[10px] text-gray-400 mb-0.5">Monto registrado</p>
+                                    <p class="text-[14px] font-bold text-gray-900">${{ number_format(session('audit_monto_pagado', 0), 2) }}</p>
+                                </div>
+                                <div class="bg-white rounded-lg border border-red-100 px-3 py-2">
+                                    <p class="text-[10px] text-gray-400 mb-0.5">Total calculado</p>
+                                    <p class="text-[14px] font-bold text-gray-900">${{ number_format(session('audit_monto_calculado', 0), 2) }}</p>
+                                </div>
+                                <div class="bg-red-100 rounded-lg border border-red-200 px-3 py-2">
+                                    <p class="text-[10px] text-red-500 mb-0.5">Diferencia</p>
+                                    <p class="text-[14px] font-bold text-red-700">${{ number_format(abs(session('audit_monto_diferencia', 0)), 2) }}</p>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-red-600">{{ $errors->first('monto_items') }}</p>
+                        </div>
+                        @endif
 
                         {{-- Sede selector for receipts with no sede (created by boss) --}}
                         @if($receipt->sede_id === null)
@@ -194,10 +217,24 @@
                             Agregar producto
                         </button>
 
-                        {{-- Subtotal preview --}}
-                        <div class="flex items-center justify-between py-2.5 px-3.5 bg-gray-50 rounded-lg">
-                            <span class="text-[12px] text-gray-500">Total calculado de productos</span>
-                            <span class="text-[13px] font-bold text-gray-900">$<span x-text="total().toFixed(2)">0.00</span></span>
+                        {{-- Monto comparison panel --}}
+                        <div :class="diffOk() ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'"
+                             class="rounded-lg border p-3.5 space-y-2 transition-colors duration-150">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] text-gray-500">Monto registrado</span>
+                                <span class="text-[12px] font-semibold text-gray-800">${{ number_format($receipt->monto_pagado, 2) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] text-gray-500">Total calculado</span>
+                                <span class="text-[13px] font-bold"
+                                      :class="diffOk() ? 'text-emerald-700' : 'text-red-700'">$<span x-text="total().toFixed(2)">0.00</span></span>
+                            </div>
+                            <div x-show="!diffOk()" class="flex items-center justify-between pt-2 border-t border-red-200">
+                                <span class="text-[11px] font-semibold text-red-600">Diferencia</span>
+                                <span class="text-[12px] font-bold text-red-700">$<span x-text="Math.abs(total() - montoPagado).toFixed(2)"></span></span>
+                            </div>
+                            <p x-show="diffOk()"  class="text-[10px] font-medium text-emerald-600">Montos coinciden — listo para aprobar</p>
+                            <p x-show="!diffOk()" class="text-[10px] font-medium text-red-600">Los montos deben coincidir exactamente</p>
                         </div>
 
                         <div>

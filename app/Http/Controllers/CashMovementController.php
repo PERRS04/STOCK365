@@ -127,6 +127,10 @@ class CashMovementController extends Controller
             return back()->with('error', 'Este movimiento ya fue procesado.');
         }
 
+        if ($movement->isDeferredPayment()) {
+            return back()->with('error', 'Este pago fue diferido automáticamente y se asignará a la siguiente sesión de caja. No puede procesarse manualmente.');
+        }
+
         $movement->update([
             'status'      => 'aprobado',
             'approved_by' => auth()->id(),
@@ -153,6 +157,10 @@ class CashMovementController extends Controller
 
         if (! $movement->isPending()) {
             return back()->with('error', 'Este movimiento ya fue procesado.');
+        }
+
+        if ($movement->isDeferredPayment()) {
+            return back()->with('error', 'Este pago fue diferido automáticamente y se asignará a la siguiente sesión de caja. No puede rechazarse manualmente.');
         }
 
         $validated = $request->validate([

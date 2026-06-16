@@ -79,6 +79,21 @@ class DashboardController extends Controller
                             fn($q) => $q->whereNotIn('sede_id', $demoIds))
             ->count();
 
+        // ── Deferred supplier payments (approved without active session) ──────
+        $deferredPayments = \App\Models\CashMovement::whereNull('cash_session_id')
+            ->where('status', 'pendiente')
+            ->where('type', 'pago_proveedor')
+            ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),
+                            fn($q) => $q->whereNotIn('sede_id', $demoIds))
+            ->with('sede')
+            ->latest()
+            ->get();
+
+        $deferredPaymentsCount = $deferredPayments->count();
+        $deferredPaymentsTotal = (float) $deferredPayments->sum('amount');
+        $deferredPaymentsSedes = $deferredPayments->pluck('sede.nombre')->filter()->unique()->values();
+        // ─────────────────────────────────────────────────────────────────────
+
         // ── 7-day chart ───────────────────────────────────────────────────────
         $rawSemana = Sale::selectRaw('DATE(fecha_venta) as fecha, SUM(total_sistema) as total')
             ->where('estado', 'completada')
@@ -175,7 +190,8 @@ class DashboardController extends Controller
             'sedes', 'sedeStats', 'chartSemana',
             'topProducts', 'pendingCashClosings',
             'stockAlerts', 'recentActivity',
-            'isBoss', 'today'
+            'isBoss', 'today',
+            'deferredPayments', 'deferredPaymentsCount', 'deferredPaymentsTotal', 'deferredPaymentsSedes'
         ));
     }
 

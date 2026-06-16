@@ -71,7 +71,18 @@
             {{ $pendingReceiptsCount }} recepción{{ $pendingReceiptsCount !== 1 ? 'es' : '' }}
         </a>
         @endif
-        @if($isBoss && $pendingClosings === 0 && $alertCount === 0)
+        @if($deferredPaymentsCount > 0)
+        <a href="{{ route('cash-movements.index') }}"
+           class="flex items-center gap-2 text-[12px] font-semibold text-orange-700 bg-orange-50 border border-orange-200/80
+                  px-3.5 py-2 rounded-xl hover:bg-orange-100 transition-colors shadow-sm">
+            <span class="relative flex h-[6px] w-[6px] shrink-0">
+                <span class="animate-status-ring absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-[6px] w-[6px] bg-orange-500"></span>
+            </span>
+            ${{ number_format($deferredPaymentsTotal, 2) }} diferido{{ $deferredPaymentsCount !== 1 ? 's' : '' }}
+        </a>
+        @endif
+        @if($isBoss && $pendingClosings === 0 && $alertCount === 0 && $deferredPaymentsCount === 0)
         <span class="flex items-center gap-2 text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60
                      px-3.5 py-2 rounded-xl">
             <span class="relative flex h-[6px] w-[6px] shrink-0">
@@ -227,6 +238,45 @@
             @endforelse
         </div>
         @endcan
+
+        {{-- Deferred supplier payments — financial commitments without a session --}}
+        @if($isBoss && $deferredPaymentsCount > 0)
+        <div class="bg-white border border-orange-200/70 rounded-2xl shadow-card overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3.5 border-b border-orange-100 bg-orange-50/60">
+                <div>
+                    <h3 class="text-[13px] font-semibold text-orange-900">Compromisos Pendientes</h3>
+                    <p class="text-[10px] text-orange-500 mt-0.5">
+                        {{ $deferredPaymentsCount }} pago{{ $deferredPaymentsCount !== 1 ? 's' : '' }} diferido{{ $deferredPaymentsCount !== 1 ? 's' : '' }}
+                        · {{ $deferredPaymentsSedes->count() }} sede{{ $deferredPaymentsSedes->count() !== 1 ? 's' : '' }}
+                    </p>
+                </div>
+                <span class="text-[12px] font-bold text-orange-700 bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full tabular-nums">
+                    ${{ number_format($deferredPaymentsTotal, 2) }}
+                </span>
+            </div>
+            <div class="divide-y divide-gray-50">
+                @foreach($deferredPayments->take(4) as $dp)
+                <div class="flex items-start justify-between px-5 py-2.5 hover:bg-orange-50/30 transition-colors">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[12px] font-semibold text-gray-800">{{ $dp->sede?->nombre ?? '—' }}</p>
+                        <p class="text-[10px] text-gray-400 truncate mt-0.5">{{ $dp->motivo }}</p>
+                        <p class="text-[10px] text-orange-500">{{ $dp->observaciones }} · {{ $dp->created_at->format('d/m H:i') }}</p>
+                    </div>
+                    <span class="text-[13px] font-bold text-orange-700 tabular-nums ml-3 shrink-0 mt-0.5">
+                        ${{ number_format($dp->amount, 2) }}
+                    </span>
+                </div>
+                @endforeach
+            </div>
+            @if($deferredPaymentsCount > 4)
+            <div class="px-5 py-2.5 border-t border-orange-100/80 bg-orange-50/30">
+                <p class="text-[10px] text-orange-500">
+                    +{{ $deferredPaymentsCount - 4 }} más · Se asignan automáticamente al abrir caja en cada sede.
+                </p>
+            </div>
+            @endif
+        </div>
+        @endif
 
     </div>
 </div>

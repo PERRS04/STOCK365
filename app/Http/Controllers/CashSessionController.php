@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashClosing;
+use App\Models\CashMovement;
 use App\Models\CashSession;
 use App\Models\CashSessionAdjustment;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class CashSessionController extends Controller
 {
@@ -64,15 +66,53 @@ class CashSessionController extends Controller
 
         $openingAmount = (float) $validated['opening_amount'];
 
-        $session = CashSession::create([
-            'user_id'                   => $user->id,
-            'sede_id'                   => $user->sede_id,
-            'opening_amount'            => $openingAmount,
-            'inherited_from_closing_id' => $lastClosing?->id,
-            'notes'                     => $validated['notes'] ?? null,
-            'status'                    => 'open',
-            'opened_at'                 => now(),
-        ]);
+        $session = DB::transaction(function () use ($user, $validated, $lastClosing, $openingAmount) {
+            $session = CashSession::create([
+                'user_id'                   => $user->id,
+                'sede_id'                   => $user->sede_id,
+                'opening_amount'            => $openingAmount,
+                'inherited_from_closing_id' => $lastClosing?->id,
+                'notes'                     => $validated['notes'] ?? null,
+                'status'                    => 'open',
+                'opened_at'                 => now(),
+            ]);
+
+            // ── Claim deferred supplier payments for this sede ────────────────
+            $orphaned = CashMovement::whereNull('cash_session_id')
+                ->where('status', 'pendiente')
+                ->where('type', 'pago_proveedor')
+                ->where('sede_id', $user->sede_id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($orphaned as $deferred) {
+                $deferred->update([
+                    'cash_session_id' => $session->id,
+                    'status'          => 'aprobado',
+                    'approved_by'     => $user->id,
+                    'approved_at'     => now(),
+                ]);
+
+                ActivityLogger::log(
+                    'receipt.payment.claimed',
+                    "Pago proveedor diferido asignado a sesión #{$session->id} — {$deferred->motivo} · \${$deferred->amount}" . ($user->sede ? ' · ' . $user->sede->nombre : ''),
+                    $deferred,
+                    ['cash_session_id' => null, 'status' => 'pendiente'],
+                    [
+                        'cash_session_id'  => $session->id,
+                        'cash_movement_id' => $deferred->id,
+                        'sede_id'          => $user->sede_id,
+                        'sede'             => $user->sede?->nombre,
+                        'status'           => 'aprobado',
+                        'usuario'          => $user->name,
+                        'timestamp'        => now()->toDateTimeString(),
+                    ]
+                );
+            }
+            // ─────────────────────────────────────────────────────────────────
+
+            return $session;
+        });
 
         $inheritedAmount = $lastClosing ? (float) $lastClosing->saldo_final : 0.00;
         $source = $lastClosing
