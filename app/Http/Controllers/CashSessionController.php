@@ -21,7 +21,8 @@ class CashSessionController extends Controller
         $session = CashSession::activeForUser($user->id, $user->sede_id);
 
         if ($session) {
-            return redirect()->route('cash-session.status');
+            return redirect()->route('cash-session.status')
+                ->with('warning', 'Ya existe una sesión activa en esta sede. Debe cerrarse antes de abrir una nueva.');
         }
 
         // Auto-inherit opening amount from last approved closing for this sede
@@ -55,7 +56,7 @@ class CashSessionController extends Controller
 
         if ($session) {
             return redirect()->route('cash-session.status')
-                ->with('info', 'Ya tienes una caja abierta.');
+                ->with('warning', 'Ya existe una sesión activa en esta sede. Debe cerrarse antes de abrir una nueva.');
         }
 
         $lastClosing = CashClosing::where('sede_id', $user->sede_id)
@@ -208,6 +209,24 @@ class CashSessionController extends Controller
     public function forceClose(CashSession $cashSession)
     {
         abort_unless(auth()->user()->isAdminLevel(), 403);
+
+        // Block force-close if the session has financial activity.
+        // Forcing closed a session with sales or approved movements discards its snapshot,
+        // causing the next session to inherit a stale saldo_final and creating an
+        // unrecoverable gap between system balance and physical cash.
+        $hasSales = $cashSession->sales()->where('estado', 'completada')->exists();
+        $hasMovements = CashMovement::where('cash_session_id', $cashSession->id)
+            ->where('status', 'aprobado')
+            ->exists();
+
+        if ($hasSales || $hasMovements) {
+            $snapshot = (new \App\Services\LiveCashBoxService())->snapshot($cashSession);
+            return redirect()->back()->with('error',
+                'No se puede cerrar forzosamente: la sesión tiene actividad financiera registrada ' .
+                '(saldo sistema: $' . number_format($snapshot['total'], 2) . '). ' .
+                'Use el flujo de cierre normal para preservar la continuidad contable.'
+            );
+        }
 
         $cashSession->update([
             'status'    => 'closed',

@@ -122,9 +122,10 @@ class CashSession extends Model
             return null;
         }
 
-        return static::where('user_id', $userId)
-            ->where('sede_id', $sedeId)
-            ->where('status', 'open')
+        // Guard by sede, not user — one active session per sede at a time.
+        // Includes pending_closing: a session awaiting closing approval still blocks new opens.
+        return static::where('sede_id', $sedeId)
+            ->whereIn('status', ['open', 'pending_closing'])
             ->first();
     }
 }
