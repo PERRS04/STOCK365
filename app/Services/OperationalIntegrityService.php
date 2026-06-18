@@ -13,7 +13,7 @@ use App\Values\OperationalIssue;
  *
  * Rules (checked in priority order):
  *  1. pending_closing  → WARNING  (session awaiting supervisor approval)
- *  2. abandoned_open   → CRITICAL (session open across day boundary or > threshold)
+ *  2. abandoned_open   → CRITICAL (session open > ABANDON_THRESHOLD_HOURS)
  *
  * Returns null (HEALTHY) when no blocking issues are detected.
  * This service is stateless — safe to call multiple times per request.
@@ -22,9 +22,10 @@ class OperationalIntegrityService
 {
     /**
      * Sessions open longer than this many hours are considered abandoned.
-     * Covers a full business day plus buffer.
+     * 20h covers extended retail shifts (7 AM–11 PM) with buffer.
+     * Duration-based only — no calendar-boundary logic.
      */
-    private const ABANDON_THRESHOLD_HOURS = 16;
+    private const ABANDON_THRESHOLD_HOURS = 20;
 
     public function evaluate(User $user): ?OperationalIssue
     {
@@ -53,16 +54,10 @@ class OperationalIntegrityService
             );
         }
 
-        // Priority 2: Session is open but spans a previous calendar day
-        if ($session->isOpen() && !$session->opened_at->isToday()) {
-            return new OperationalIssue(
-                type:    OperationalIssueType::ABANDONED_SESSION,
-                status:  OperationalStatus::CRITICAL,
-                session: $session,
-            );
-        }
-
-        // Priority 3: Session is open but exceeds intraday threshold
+        // Priority 2: Session is open and exceeds duration threshold.
+        // Duration-only — no calendar-boundary check. Checking !isToday() would
+        // block operators 1 minute past midnight regardless of session age,
+        // and make the threshold below dead code for all cross-midnight sessions.
         if ($session->isOpen() && $session->opened_at->diffInHours(now()) >= self::ABANDON_THRESHOLD_HOURS) {
             return new OperationalIssue(
                 type:    OperationalIssueType::ABANDONED_SESSION,

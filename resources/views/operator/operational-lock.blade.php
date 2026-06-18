@@ -190,6 +190,18 @@
             </div>
             @endif
 
+            {{-- Submit closing (for CRITICAL abandoned session — this is the correct resolution path) --}}
+            @if($issue->isCritical() && $issue->type === \App\Enums\OperationalIssueType::ABANDONED_SESSION)
+            <a href="{{ route('cash-closing.create') }}"
+               class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-[13px] text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-[120ms]">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Enviar cierre de caja
+            </a>
+            @endif
+
             {{-- View caja status (only for WARNING — pending closing has a status to check) --}}
             @if($issue->isWarning())
             <a href="{{ route('cash-session.status') }}"

@@ -32,7 +32,7 @@ enum OperationalIssueType: string
             self::PENDING_CLOSING_APPROVAL =>
                 'Espera a que el supervisor apruebe o rechace tu cierre. Si fue rechazado, la caja se reabrirá automáticamente y podrás continuar.',
             self::ABANDONED_SESSION =>
-                'Contacta a tu supervisor para que autorice el cierre forzado de la sesión activa antes de continuar operando.',
+                'Tu sesión sigue activa pero excedió el tiempo operacional permitido. Debes registrar y enviar el cierre de caja para que el supervisor lo revise. Una vez aprobado o corregido, el acceso será restaurado automáticamente.',
             self::MISSING_CLOSING =>
                 'Comunícate con el supervisor para regularizar el cierre de la sesión anterior.',
             self::CASH_DIFFERENCE =>

@@ -35,6 +35,10 @@ class OperationalIntegrityGuard
         'logout',
         'login',
         'cash-session.status',      // read-only — operator can always see their state
+        // Closing submission is always allowed — it IS the correct resolution path
+        // for an abandoned session. Blocking it creates an irresolvable deadlock.
+        'cash-closing.create',
+        'cash-closing.store',
         // Standard Jetstream/Fortify auth routes
         'password.request',
         'password.email',
