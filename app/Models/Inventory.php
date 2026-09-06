@@ -12,6 +12,7 @@ class Inventory extends Model
     protected $fillable = [
         'product_id',
         'sede_id',
+        'almacen_id',
         'cantidad_stock',
         'stock_recomendado',
         'ultima_actualizacion',
@@ -30,6 +31,18 @@ class Inventory extends Model
     public function sede()
     {
         return $this->belongsTo(Sede::class);
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
+    }
+
+    public function locationKey(): string
+    {
+        return $this->sede_id
+            ? "sede:{$this->sede_id}"
+            : "almacen:{$this->almacen_id}";
     }
 
     public function isLowStock(): bool

@@ -12,6 +12,7 @@ class InventoryMovement extends Model
     protected $fillable = [
         'product_id',
         'sede_id',
+        'almacen_id',
         'tipo',
         'cantidad',
         'motivo',
@@ -37,6 +38,11 @@ class InventoryMovement extends Model
     public function sede()
     {
         return $this->belongsTo(Sede::class);
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
     }
 
     public function user()
