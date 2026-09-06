@@ -47,6 +47,7 @@ class InventoryTable extends Component
     public function inventories()
     {
         return Inventory::where('sede_id', $this->sedeId)
+            ->whereHas('product')
             ->when($this->search, function ($q) {
                 $q->whereHas('product', function ($inner) {
                     $inner->where('nombre', 'like', "%{$this->search}%")
