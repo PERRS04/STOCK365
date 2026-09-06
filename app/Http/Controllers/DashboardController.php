@@ -216,6 +216,7 @@ class DashboardController extends Controller
         }
 
         $lowStockProducts = \App\Models\Inventory::where('sede_id', $sede->id)
+            ->whereHas('product')
             ->whereRaw('cantidad_stock < (SELECT stock_minimo FROM products WHERE id = inventories.product_id)')
             ->with('product')->get();
 

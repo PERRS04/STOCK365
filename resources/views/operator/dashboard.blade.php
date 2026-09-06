@@ -248,8 +248,8 @@
             @foreach($lowStockProducts as $item)
             <div class="flex items-center justify-between px-5 py-3">
                 <div>
-                    <p class="text-[13px] font-medium text-gray-800">{{ $item->product->nombre }}</p>
-                    <p class="text-[11px] text-gray-400 mt-0.5">{{ $item->product->marca }} · T{{ $item->product->tamaño }}</p>
+                    <p class="text-[13px] font-medium text-gray-800">{{ $item->product?->nombre }}</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">{{ $item->product?->marca }} · T{{ $item->product?->tamaño }}</p>
                 </div>
                 <div class="text-right">
                     <p class="text-[13px] font-bold text-red-600">{{ $item->cantidad_stock }} uds</p>
