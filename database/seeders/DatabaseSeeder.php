@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             SedeSeeder::class,
             UserSeeder::class,
             ProductSeeder::class,
+            AlmacenSeeder::class,
             // InventorySeeder, SaleSeeder, etc. are intentionally excluded.
             // Use --seeder=ProductionSeeder for a clean production launch.
             // Run `php artisan stock365:reset` to wipe operational data at any time.

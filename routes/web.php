@@ -23,6 +23,7 @@ use App\Http\Controllers\CourtesyController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\SedePaymentController;
+use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\OperationalLockController;
 
 Route::get('/', function () {
@@ -146,6 +147,15 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     // ── Configuration (boss only) ─────────────────────────────────────────────
     Route::resource('sedes', SedeController::class);
     Route::resource('users', UserController::class);
+
+    // ── Almacenes (boss only) ─────────────────────────────────────────────────
+    Route::middleware('boss')->group(function () {
+        Route::get('/almacenes',                   [AlmacenController::class, 'index'])->name('almacenes.index');
+        Route::get('/almacenes/nuevo',             [AlmacenController::class, 'create'])->name('almacenes.create');
+        Route::post('/almacenes',                  [AlmacenController::class, 'store'])->name('almacenes.store');
+        Route::get('/almacenes/{almacen}/editar',  [AlmacenController::class, 'edit'])->name('almacenes.edit');
+        Route::patch('/almacenes/{almacen}',       [AlmacenController::class, 'update'])->name('almacenes.update');
+    });
     Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
 
     // ── Workforce Intelligence (boss only) ────────────────────────────────────

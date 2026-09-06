@@ -30,7 +30,7 @@
     $cajaOpen     = request()->routeIs('cash-closings.*', 'cash-sessions.*', 'cash-session.*', 'cash-closing.*');
     $finOpen      = request()->routeIs('finances.*');
     $adminOpen    = request()->routeIs('users.*', 'sedes.*');
-    $operOpen     = request()->routeIs('courtesies.*', 'cash-movements.*', 'approvals.*');
+    $operOpen     = request()->routeIs('courtesies.*', 'cash-movements.*', 'approvals.*', 'almacenes.*');
 @endphp
 
 <aside class="w-60 sidebar-bg flex flex-col shrink-0 overflow-hidden">
@@ -103,6 +103,14 @@
                         <span class="text-[9px] font-bold px-1 py-[1px] rounded bg-amber-500 text-white">{{ $totalPendingOper }}</span>
                     @endif
                 </a>
+                @if(auth()->user()->isBoss())
+                <a href="{{ route('almacenes.index') }}"
+                   class="flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium
+                          {{ request()->routeIs('almacenes.*') ? 'nav-sub-active' : 'nav-sub-inactive' }}">
+                    <span class="w-1 h-1 rounded-full bg-current opacity-50 shrink-0"></span>
+                    Almacenes
+                </a>
+                @endif
             </div>
         </div>
 
