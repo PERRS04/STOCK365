@@ -40,9 +40,14 @@ class Sede extends Model
     // IDs de sedes demo, cacheados 5 min para evitar N+1 en los engines.
     public static function demoIds(): \Illuminate\Support\Collection
     {
-        return Cache::remember('sede_demo_ids', 300, fn () =>
-            static::where('is_demo', true)->pluck('id')
-        );
+        return Cache::remember('sede_demo_ids', 300, function () {
+            // Guard against missing migration — returns empty collection (no demo sedes)
+            // rather than throwing SQLSTATE[42S22] if is_demo column doesn't exist yet.
+            if (!\Illuminate\Support\Facades\Schema::hasColumn('sedes', 'is_demo')) {
+                return collect();
+            }
+            return static::where('is_demo', true)->pluck('id');
+        });
     }
 
     public function users()
