@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\InsufficientStockException;
+use App\Exceptions\InventoryNotFoundException;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\Sede;
 use App\Models\StockAlert;
 use App\Services\ActivityLogger;
+use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class InventoryController extends Controller
 {
+    public function __construct(private InventoryStockService $stockService) {}
+
     public function index()
     {
         abort_unless(auth()->user()->can('inventory.view'), 403);
@@ -45,57 +51,87 @@ class InventoryController extends Controller
             'observaciones' => 'nullable|string',
         ]);
 
-        $inventory = Inventory::firstOrCreate(
-            ['product_id' => $validated['product_id'], 'sede_id' => $validated['sede_id']],
-            ['cantidad_stock' => 0]
-        );
+        $tipo     = $validated['cantidad'] > 0 ? 'entrada' : 'salida';
+        $cantidad = abs($validated['cantidad']);
 
-        $stockAnterior = $inventory->cantidad_stock;
-        $tipo = $validated['cantidad'] > 0 ? 'entrada' : 'salida';
+        try {
+            DB::transaction(function () use ($validated, $tipo, $cantidad) {
+                $inventory = $tipo === 'entrada'
+                    ? $this->stockService->entrada(
+                        $validated['product_id'],
+                        $cantidad,
+                        $validated['sede_id'],
+                        null,
+                        null,
+                        auth()->id(),
+                        $validated['motivo']
+                    )
+                    : $this->stockService->salida(
+                        $validated['product_id'],
+                        $cantidad,
+                        $validated['sede_id'],
+                        null,
+                        null,
+                        auth()->id(),
+                        $validated['motivo']
+                    );
 
-        InventoryMovement::create([
-            'product_id'       => $validated['product_id'],
-            'sede_id'          => $validated['sede_id'],
-            'tipo'             => $tipo,
-            'cantidad'         => abs($validated['cantidad']),
-            'motivo'           => $validated['motivo'],
-            'user_id'          => auth()->id(),
-            'observaciones'    => $validated['observaciones'] ?? null,
-            'fecha_movimiento' => now(),
-        ]);
+                // Derive stockAnterior from the confirmed post-update value — avoids stale snapshot.
+                // The service atomically applied ±$cantidad via lockForUpdate, so the derivation is exact.
+                $stockNuevo    = $inventory->cantidad_stock;
+                $stockAnterior = $tipo === 'entrada' ? $stockNuevo - $cantidad : $stockNuevo + $cantidad;
 
-        $stockNuevo = $stockAnterior + $validated['cantidad'];
-        $inventory->update([
-            'cantidad_stock'       => $stockNuevo,
-            'ultima_actualizacion' => now(),
-        ]);
+                // Persist observaciones — not handled by the service.
+                // Filter by all known attributes to avoid ambiguity under concurrent inserts.
+                if (!empty($validated['observaciones'])) {
+                    InventoryMovement::where([
+                        'product_id' => $validated['product_id'],
+                        'sede_id'    => $validated['sede_id'],
+                        'almacen_id' => null,
+                        'tipo'       => $tipo,
+                        'cantidad'   => $cantidad,
+                        'user_id'    => auth()->id(),
+                    ])
+                    ->latest('id')
+                    ->first()
+                    ?->update(['observaciones' => $validated['observaciones']]);
+                }
 
-        $product = Product::find($validated['product_id']);
+                $product = Product::find($validated['product_id']);
 
-        // Auto-manage stock alert for this product/sede
-        if ($stockNuevo < $product->stock_minimo) {
-            StockAlert::updateOrCreate(
-                ['product_id' => $product->id, 'sede_id' => $validated['sede_id']],
-                [
-                    'stock_actual'  => $stockNuevo,
-                    'stock_minimo'  => $product->stock_minimo,
-                    'alerta_activa' => true,
-                    'fecha_alerta'  => now(),
-                ]
-            );
-        } else {
-            StockAlert::where('product_id', $product->id)
-                ->where('sede_id', $validated['sede_id'])
-                ->update(['alerta_activa' => false]);
+                if ($stockNuevo < $product->stock_minimo) {
+                    StockAlert::updateOrCreate(
+                        ['product_id' => $product->id, 'sede_id' => $validated['sede_id']],
+                        [
+                            'stock_actual'  => $stockNuevo,
+                            'stock_minimo'  => $product->stock_minimo,
+                            'alerta_activa' => true,
+                            'fecha_alerta'  => now(),
+                        ]
+                    );
+                } else {
+                    StockAlert::where('product_id', $product->id)
+                        ->where('sede_id', $validated['sede_id'])
+                        ->update(['alerta_activa' => false]);
+                }
+
+                ActivityLogger::log(
+                    'inventory.adjust',
+                    "Stock ajustado: {$product->nombre} | {$tipo} {$validated['cantidad']} unidades | Motivo: {$validated['motivo']}",
+                    $inventory,
+                    ['cantidad_stock' => $stockAnterior],
+                    ['cantidad_stock' => $stockNuevo]
+                );
+            });
+        } catch (InsufficientStockException $e) {
+            return redirect()->back()->withErrors([
+                'cantidad' => "Stock insuficiente. Disponible: {$e->disponible}. Requerido: {$e->requerido}.",
+            ]);
+        } catch (InventoryNotFoundException) {
+            return redirect()->back()->withErrors([
+                'cantidad' => 'No existe inventario para este producto en la sede seleccionada.',
+            ]);
         }
-
-        ActivityLogger::log(
-            'inventory.adjust',
-            "Stock ajustado: {$product->nombre} | {$tipo} {$validated['cantidad']} unidades | Motivo: {$validated['motivo']}",
-            $inventory,
-            ['cantidad_stock' => $stockAnterior],
-            ['cantidad_stock' => $stockNuevo]
-        );
 
         return redirect()->back()->with('success', 'Stock ajustado correctamente');
     }
