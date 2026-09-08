@@ -4,16 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\CourtesyTransaction;
 use App\Models\Inventory;
-use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\Sede;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CourtesyController extends Controller
 {
+    public function __construct(private InventoryStockService $stockService) {}
     // ── OPERATOR: show create form ────────────────────────────────────────────
 
     public function create()
@@ -134,34 +135,17 @@ class CourtesyController extends Controller
 
         try {
             DB::transaction(function () use ($courtesy) {
-                $inventory = Inventory::where('product_id', $courtesy->product_id)
-                    ->where('sede_id', $courtesy->sede_id)
-                    ->first();
-
-                if (! $inventory || $inventory->cantidad_stock < $courtesy->quantity) {
-                    throw new \Exception(
-                        'Stock insuficiente. Disponible: ' .
-                        ($inventory?->cantidad_stock ?? 0) .
-                        ' uds — Solicitado: ' . $courtesy->quantity . ' uds.'
-                    );
-                }
-
-                $inventory->update([
-                    'cantidad_stock'       => $inventory->cantidad_stock - $courtesy->quantity,
-                    'ultima_actualizacion' => now(),
-                ]);
-
-                InventoryMovement::create([
-                    'product_id'       => $courtesy->product_id,
-                    'sede_id'          => $courtesy->sede_id,
-                    'tipo'             => 'cortesia',
-                    'cantidad'         => $courtesy->quantity,
-                    'motivo'           => 'Cortesía: ' . CourtesyTransaction::tipoLabel($courtesy->tipo) . ' — ' . $courtesy->motivo,
-                    'reference_id'     => $courtesy->id,
-                    'reference_type'   => 'courtesy',
-                    'user_id'          => auth()->id(),
-                    'fecha_movimiento' => now(),
-                ]);
+                $this->stockService->salida(
+                    $courtesy->product_id,
+                    $courtesy->quantity,
+                    $courtesy->sede_id,
+                    null,
+                    null,
+                    auth()->id(),
+                    'Cortesía: ' . CourtesyTransaction::tipoLabel($courtesy->tipo) . ' — ' . $courtesy->motivo,
+                    $courtesy->id,
+                    'courtesy'
+                );
 
                 $courtesy->update([
                     'status'      => 'aprobado',
