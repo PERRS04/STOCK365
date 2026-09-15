@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\InsufficientStockException;
+use App\Exceptions\InventoryNotFoundException;
 use App\Models\CashSession;
-use App\Models\Inventory;
-use App\Models\InventoryMovement;
+use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\ActivityLogger;
+use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SaleController extends Controller
 {
+    public function __construct(private InventoryStockService $stockService) {}
+
     public function create()
     {
         abort_unless(auth()->user()->can('sales.create'), 403);
@@ -41,84 +45,73 @@ class SaleController extends Controller
             'descuento'                => 'nullable|numeric|min:0',
         ]);
 
-        return DB::transaction(function () use ($validated) {
-            $sede        = Auth::user()->sede;
-            $totalSistema = 0;
+        // Merge duplicate product_ids and sort ASC to prevent deadlocks under concurrency
+        $items = $this->normalizeItems($validated['items']);
 
-            // Check stock availability before committing
-            foreach ($validated['items'] as $item) {
-                $stock = Inventory::where('product_id', $item['product_id'])
-                    ->where('sede_id', $sede->id)
-                    ->value('cantidad_stock') ?? 0;
-
-                if ($stock < $item['cantidad']) {
-                    $product = \App\Models\Product::find($item['product_id']);
-                    return response()->json([
-                        'error' => "Stock insuficiente para \"{$product->nombre}\". Disponible: {$stock}, solicitado: {$item['cantidad']}."
-                    ], 422);
-                }
-            }
-
-            foreach ($validated['items'] as $item) {
-                $totalSistema += $item['cantidad'] * $item['precio_unitario'];
-            }
-
-            $descuento = $validated['descuento'] ?? 0;
-
-            $cashSession = CashSession::activeForUser(Auth::id(), $sede->id);
-
-            $sale = Sale::create([
-                'sede_id'         => $sede->id,
-                'user_id'         => Auth::id(),
-                'cash_session_id' => $cashSession?->id,
-                'total_sistema'   => $totalSistema - $descuento,
-                'descuento'       => $descuento,
-                'estado'          => 'completada',
-                'fecha_venta'     => now(),
-            ]);
-
-            foreach ($validated['items'] as $item) {
-                $product = \App\Models\Product::find($item['product_id']);
-
-                SaleItem::create([
-                    'sale_id'          => $sale->id,
-                    'product_id'       => $item['product_id'],
-                    'cantidad'         => $item['cantidad'],
-                    'precio_unitario'  => $item['precio_unitario'],
-                    'costo_unitario'   => $product->precio_compra ?? 0,
-                    'subtotal'         => $item['cantidad'] * $item['precio_unitario'],
-                ]);
-
-                $inventory = Inventory::firstOrCreate(
-                    ['product_id' => $item['product_id'], 'sede_id' => $sede->id],
-                    ['cantidad_stock' => 0]
+        try {
+            return DB::transaction(function () use ($items, $validated) {
+                $sede         = Auth::user()->sede;
+                $descuento    = $validated['descuento'] ?? 0;
+                $totalSistema = array_sum(
+                    array_map(fn($i) => $i['cantidad'] * $i['precio_unitario'], $items)
                 );
-                $inventory->decrement('cantidad_stock', $item['cantidad']);
 
-                InventoryMovement::create([
-                    'product_id'       => $item['product_id'],
-                    'sede_id'          => $sede->id,
-                    'tipo'             => 'salida',
-                    'cantidad'         => $item['cantidad'],
-                    'costo_unitario'   => $product->precio_compra ?? 0,
-                    'motivo'           => 'Venta',
-                    'reference_id'     => $sale->id,
-                    'reference_type'   => 'sale',
-                    'user_id'          => Auth::id(),
-                    'fecha_movimiento' => now(),
+                $cashSession = CashSession::activeForUser(Auth::id(), $sede->id);
+
+                $sale = Sale::create([
+                    'sede_id'         => $sede->id,
+                    'user_id'         => Auth::id(),
+                    'cash_session_id' => $cashSession?->id,
+                    'total_sistema'   => $totalSistema - $descuento,
+                    'descuento'       => $descuento,
+                    'estado'          => 'completada',
+                    'fecha_venta'     => now(),
                 ]);
-            }
 
-            ActivityLogger::log(
-                'sale.create',
-                "Venta registrada — {$sede->nombre} | " . count($validated['items']) . " productos | Total: \${$sale->total_sistema}",
-                $sale,
-                [],
-                ['total_sistema' => $sale->total_sistema, 'items_count' => count($validated['items'])]
-            );
+                foreach ($items as $item) {
+                    $product = Product::find($item['product_id']);
 
-            return response()->json(['success' => true, 'sale_id' => $sale->id]);
-        });
+                    SaleItem::create([
+                        'sale_id'         => $sale->id,
+                        'product_id'      => $item['product_id'],
+                        'cantidad'        => $item['cantidad'],
+                        'precio_unitario' => $item['precio_unitario'],
+                        'costo_unitario'  => $product->precio_compra ?? 0,
+                        'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
+                    ]);
+
+                    $this->stockService->salida(
+                        productId:     $item['product_id'],
+                        cantidad:      $item['cantidad'],
+                        sedeId:        $sede->id,
+                        almacenId:     null,
+                        costoUnitario: $product->precio_compra ?? null,
+                        userId:        Auth::id(),
+                        motivo:        'Venta',
+                        referenceId:   $sale->id,
+                        referenceType: 'sale',
+                    );
+                }
+
+                ActivityLogger::log(
+                    'sale.create',
+                    "Venta registrada — {$sede->nombre} | " . count($items) . " productos | Total: \${$sale->total_sistema}",
+                    $sale,
+                    [],
+                    ['total_sistema' => $sale->total_sistema, 'items_count' => count($items)]
+                );
+
+                return response()->json(['success' => true, 'sale_id' => $sale->id]);
+            });
+        } catch (InsufficientStockException $e) {
+            return response()->json([
+                'error' => "Stock insuficiente. Disponible: {$e->disponible}. Requerido: {$e->requerido}.",
+            ], 422);
+        } catch (InventoryNotFoundException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     public function history()
@@ -135,5 +128,23 @@ class SaleController extends Controller
         $sales = $query->latest('fecha_venta')->paginate(20);
 
         return view('sales.history', compact('sales'));
+    }
+
+    // Merge items that share the same product_id (sum quantities, keep first price),
+    // then sort ASC by product_id to acquire row locks in a consistent order and
+    // reduce deadlock risk when multiple transactions run concurrently.
+    private function normalizeItems(array $rawItems): array
+    {
+        $consolidated = [];
+        foreach ($rawItems as $item) {
+            $pid = $item['product_id'];
+            if (isset($consolidated[$pid])) {
+                $consolidated[$pid]['cantidad'] += $item['cantidad'];
+            } else {
+                $consolidated[$pid] = $item;
+            }
+        }
+        ksort($consolidated);
+        return array_values($consolidated);
     }
 }
