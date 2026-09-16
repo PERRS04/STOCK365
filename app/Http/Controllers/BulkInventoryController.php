@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
-use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\Sede;
 use App\Services\ActivityLogger;
+use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class BulkInventoryController extends Controller
 {
+    public function __construct(private InventoryStockService $stockService) {}
+
     public function index(Request $request)
     {
         abort_unless(auth()->user()->isBoss(), 403);
@@ -36,46 +38,40 @@ class BulkInventoryController extends Controller
         abort_unless(auth()->user()->isBoss(), 403);
 
         $validated = $request->validate([
-            'sede_id'             => 'required|exists:sedes,id',
-            'quantities'          => 'required|array',
-            'quantities.*'        => 'nullable|integer|min:0',
-            'motivo'              => 'nullable|string|max:255',
+            'sede_id'      => 'required|exists:sedes,id',
+            'quantities'   => 'required|array',
+            'quantities.*' => 'nullable|integer|min:0',
+            'motivo'       => 'nullable|string|max:255',
         ]);
 
-        $sede   = Sede::findOrFail($validated['sede_id']);
-        $motivo = $validated['motivo'] ?: 'Carga masiva de inventario inicial';
+        $sede    = Sede::findOrFail($validated['sede_id']);
+        $motivo  = ($validated['motivo'] ?? null) ?: 'Carga masiva de inventario inicial';
         $changed = 0;
 
-        DB::transaction(function () use ($validated, $sede, $motivo, &$changed) {
-            foreach ($validated['quantities'] as $productId => $newQty) {
+        // Sort ASC by product_id for deterministic lock acquisition (deadlock prevention)
+        $quantities = $validated['quantities'];
+        ksort($quantities);
+
+        DB::transaction(function () use ($quantities, $sede, $motivo, &$changed) {
+            foreach ($quantities as $productId => $newQty) {
                 if ($newQty === null || $newQty === '') continue;
 
-                $newQty = (int) $newQty;
+                $newQty     = (int) $newQty;
+                $currentQty = Inventory::where('product_id', $productId)
+                    ->where('sede_id', $sede->id)
+                    ->value('cantidad_stock') ?? 0;
 
-                $inventory = Inventory::firstOrCreate(
-                    ['product_id' => $productId, 'sede_id' => $sede->id],
-                    ['cantidad_stock' => 0, 'stock_recomendado' => 0]
+                if ($currentQty === $newQty) continue;
+
+                $this->stockService->setStockAbsolute(
+                    productId:      (int) $productId,
+                    targetCantidad: $newQty,
+                    sedeId:         $sede->id,
+                    almacenId:      null,
+                    costoUnitario:  null,
+                    userId:         auth()->id(),
+                    motivo:         $motivo,
                 );
-
-                $oldQty = $inventory->cantidad_stock;
-                $diff   = $newQty - $oldQty;
-
-                if ($diff === 0) continue;
-
-                $inventory->update([
-                    'cantidad_stock'       => $newQty,
-                    'ultima_actualizacion' => now(),
-                ]);
-
-                InventoryMovement::create([
-                    'product_id'       => $productId,
-                    'sede_id'          => $sede->id,
-                    'tipo'             => $diff > 0 ? 'entrada' : 'salida',
-                    'cantidad'         => abs($diff),
-                    'motivo'           => $motivo,
-                    'user_id'          => auth()->id(),
-                    'fecha_movimiento' => now(),
-                ]);
 
                 $changed++;
             }
