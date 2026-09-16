@@ -56,8 +56,17 @@ class InventoryMovement extends Model
     public function isLoss(): bool        { return $this->tipo === 'pérdida'; }
     public function isTransfer(): bool    { return $this->tipo === 'transferencia'; }
 
-    public function isPositive(): bool    { return in_array($this->tipo, ['entrada', 'ajuste']); }
-    public function isNegative(): bool    { return in_array($this->tipo, ['salida', 'pérdida', 'transferencia']); }
+    public function isPositive(): bool
+    {
+        if ($this->tipo === 'ajuste') return $this->cantidad > 0;
+        return $this->tipo === 'entrada';
+    }
+
+    public function isNegative(): bool
+    {
+        if ($this->tipo === 'ajuste') return $this->cantidad < 0;
+        return in_array($this->tipo, ['salida', 'pérdida', 'transferencia']);
+    }
 
     public function tipoLabel(): string
     {

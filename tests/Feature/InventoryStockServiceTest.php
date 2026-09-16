@@ -499,7 +499,7 @@ class InventoryStockServiceTest extends TestCase
             'product_id' => $product->id,
             'sede_id'    => $sede->id,
             'tipo'       => 'ajuste',
-            'cantidad'   => 7,
+            'cantidad'   => -7,
         ]);
     }
 
@@ -519,6 +519,157 @@ class InventoryStockServiceTest extends TestCase
             'sede_id'        => $sede->id,
             'cantidad_stock' => 5,
         ]);
+    }
+
+    // ── Tests 30-39: Signed ajuste — ETAPA 2.2A-1 ────────────────────────────
+
+    #[Test]
+    public function test_set_stock_absolute_target_negativo_lanza_excepcion(): void
+    {
+        $product     = $this->makeProduct();
+        $sede        = $this->makeSede();
+        $this->makeInventory($product, $sede, null, 10);
+        $countBefore = InventoryMovement::count();
+
+        try {
+            $this->service->setStockAbsolute($product->id, -1, $sede->id, null, null, $this->userId);
+            $this->fail('Expected InvalidArgumentException was not thrown.');
+        } catch (\InvalidArgumentException) {}
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $sede->id,
+            'cantidad_stock' => 10,
+        ]);
+        $this->assertEquals($countBefore, InventoryMovement::count());
+    }
+
+    #[Test]
+    public function test_set_stock_absolute_inventario_inexistente_crea_ajuste_positivo(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+
+        $this->service->setStockAbsolute($product->id, 10, $sede->id, null, null, $this->userId);
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $sede->id,
+            'cantidad_stock' => 10,
+        ]);
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'sede_id'    => $sede->id,
+            'tipo'       => 'ajuste',
+            'cantidad'   => 10,
+        ]);
+    }
+
+    #[Test]
+    public function test_salida_cantidad_almacenada_siempre_positiva(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+        $this->makeInventory($product, $sede, null, 10);
+
+        $this->service->salida($product->id, 4, $sede->id, null, null, $this->userId);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'tipo'       => 'salida',
+            'cantidad'   => 4,
+        ]);
+    }
+
+    #[Test]
+    public function test_perdida_cantidad_almacenada_siempre_positiva(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+        $this->makeInventory($product, $sede, null, 10);
+
+        $this->service->perdida($product->id, 3, $sede->id, null, null, $this->userId);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'tipo'       => 'pérdida',
+            'cantidad'   => 3,
+        ]);
+    }
+
+    #[Test]
+    public function test_entrada_cantidad_almacenada_siempre_positiva(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+
+        $this->service->entrada($product->id, 6, $sede->id, null, null, $this->userId);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'tipo'       => 'entrada',
+            'cantidad'   => 6,
+        ]);
+    }
+
+    #[Test]
+    public function test_kardex_reconstruccion_con_ajuste_negativo(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+
+        $this->service->entrada($product->id, 15, $sede->id, null, null, $this->userId);
+        $this->service->setStockAbsolute($product->id, 10, $sede->id, null, null, $this->userId);
+
+        $saldo = 0;
+        InventoryMovement::where('product_id', $product->id)
+            ->where('sede_id', $sede->id)
+            ->orderBy('id')
+            ->each(function ($mov) use (&$saldo) {
+                if (in_array($mov->tipo, ['entrada', 'ajuste'])) {
+                    $saldo += $mov->cantidad;
+                } else {
+                    $saldo -= $mov->cantidad;
+                }
+            });
+
+        $this->assertEquals(10, $saldo);
+    }
+
+    #[Test]
+    public function test_syncstock_reconstruccion_con_ajuste_negativo(): void
+    {
+        $product = $this->makeProduct();
+        $sede    = $this->makeSede();
+
+        $this->service->entrada($product->id, 15, $sede->id, null, null, $this->userId);
+        $this->service->setStockAbsolute($product->id, 10, $sede->id, null, null, $this->userId);
+
+        $rows = DB::select("
+            SELECT SUM(
+                CASE WHEN tipo IN ('entrada','ajuste') THEN cantidad ELSE -cantidad END
+            ) AS stock
+            FROM inventory_movements
+            WHERE product_id = ? AND sede_id = ?
+        ", [$product->id, $sede->id]);
+
+        $this->assertEquals(10, (int) $rows[0]->stock);
+    }
+
+    #[Test]
+    public function test_ispositive_ajuste_con_cantidad_positiva(): void
+    {
+        $mov = new InventoryMovement(['tipo' => 'ajuste', 'cantidad' => 5]);
+        $this->assertTrue($mov->isPositive());
+        $this->assertFalse($mov->isNegative());
+    }
+
+    #[Test]
+    public function test_isnegative_ajuste_con_cantidad_negativa(): void
+    {
+        $mov = new InventoryMovement(['tipo' => 'ajuste', 'cantidad' => -5]);
+        $this->assertFalse($mov->isPositive());
+        $this->assertTrue($mov->isNegative());
     }
 
     // ── Test 27: Multi-product deadlock prevention ────────────────────────────

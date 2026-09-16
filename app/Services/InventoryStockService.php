@@ -112,6 +112,12 @@ class InventoryStockService
         ?int $userId = null,
         string $motivo = ''
     ): Inventory {
+        if ($targetCantidad < 0) {
+            throw new \InvalidArgumentException(
+                "targetCantidad cannot be negative: {$targetCantidad}."
+            );
+        }
+
         return DB::transaction(function () use ($productId, $targetCantidad, $sedeId, $almacenId, $costoUnitario, $userId, $motivo) {
             $this->validateLocation($sedeId, $almacenId);
 
@@ -176,7 +182,7 @@ class InventoryStockService
             'sede_id'          => $locked->sede_id,
             'almacen_id'       => $locked->almacen_id,
             'tipo'             => $tipo,
-            'cantidad'         => abs($delta),
+            'cantidad'         => $tipo === 'ajuste' ? $delta : abs($delta),
             'motivo'           => $motivo,
             'user_id'          => $userId,
             'costo_unitario'   => $costoUnitario,
