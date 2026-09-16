@@ -40,6 +40,11 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    public function receipts()
+    {
+        return $this->hasMany(InventoryReceipt::class);
+    }
+
     public function isPending(): bool
     {
         return $this->estado === 'pendiente';

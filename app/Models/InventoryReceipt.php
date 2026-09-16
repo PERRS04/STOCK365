@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class InventoryReceipt extends Model
 {
     protected $fillable = [
-        'sede_id', 'user_id', 'provider_id', 'supplier_name', 'monto_pagado',
+        'purchase_order_id', 'sede_id', 'user_id', 'provider_id', 'supplier_name', 'monto_pagado',
         'observaciones', 'invoice_path', 'estado',
         'aprobado_por', 'aprobado_at', 'notas_aprobacion',
     ];
@@ -17,7 +17,8 @@ class InventoryReceipt extends Model
         'aprobado_at'  => 'datetime',
     ];
 
-    public function sede()       { return $this->belongsTo(Sede::class); }
+    public function purchaseOrder() { return $this->belongsTo(PurchaseOrder::class); }
+    public function sede()          { return $this->belongsTo(Sede::class); }
     public function user()       { return $this->belongsTo(User::class); }
     public function provider()   { return $this->belongsTo(Provider::class); }
     public function approvedBy() { return $this->belongsTo(User::class, 'aprobado_por'); }
