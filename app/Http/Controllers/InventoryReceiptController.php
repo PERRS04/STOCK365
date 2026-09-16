@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\CashMovement;
 use App\Models\CashSession;
-use App\Models\Inventory;
-use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\Product;
@@ -13,12 +11,15 @@ use App\Models\ReceiptPaymentAllocation;
 use App\Models\Sede;
 use App\Models\StockAlert;
 use App\Services\ActivityLogger;
+use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InventoryReceiptController extends Controller
 {
+    public function __construct(private InventoryStockService $stockService) {}
+
     // ── OPERATOR: show create form ────────────────────────────────────────────
 
     public function create()
@@ -168,12 +169,12 @@ class InventoryReceiptController extends Controller
         }
 
         $validated = $request->validate([
-            'notas_aprobacion'          => 'nullable|string|max:1000',
-            'sede_id_override'          => 'nullable|exists:sedes,id',
-            'items'                     => 'required|array|min:1',
-            'items.*.product_id'        => 'required|exists:products,id',
-            'items.*.cantidad'          => 'required|integer|min:1',
-            'items.*.costo_unitario'    => 'required|numeric|min:0',
+            'notas_aprobacion'       => 'nullable|string|max:1000',
+            'sede_id_override'       => 'nullable|exists:sedes,id',
+            'items'                  => 'required|array|min:1',
+            'items.*.product_id'     => 'required|exists:products,id',
+            'items.*.cantidad'       => 'required|integer|min:1',
+            'items.*.costo_unitario' => 'required|numeric|min:0',
         ]);
 
         $calculatedTotal = round(
@@ -187,132 +188,134 @@ class InventoryReceiptController extends Controller
         if (abs($calculatedTotal - $montoPagado) > 0.005) {
             return back()
                 ->withInput()
-                ->with('audit_monto_pagado',    $montoPagado)
-                ->with('audit_monto_calculado', $calculatedTotal)
+                ->with('audit_monto_pagado',     $montoPagado)
+                ->with('audit_monto_calculado',  $calculatedTotal)
                 ->with('audit_monto_diferencia', round($montoPagado - $calculatedTotal, 2))
                 ->withErrors([
                     'monto_items' => 'El total de ítems debe coincidir exactamente con el monto pagado registrado.',
                 ]);
         }
 
-        if ($receipt->sede_id === null) {
-            if (empty($validated['sede_id_override'])) {
-                return back()->withErrors(['sede_id_override' => 'Esta recepción no tiene sede asignada. Selecciona la sede de destino antes de aprobar.']);
-            }
-            $receipt->update(['sede_id' => $validated['sede_id_override']]);
-            $receipt->refresh();
-        }
+        try {
+            DB::transaction(function () use ($receipt, $validated) {
+                // Authoritative lock — prevents double-approval race condition
+                $lockedReceipt = InventoryReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
 
-        DB::transaction(function () use ($receipt, $validated) {
-            foreach ($validated['items'] as $item) {
-                InventoryReceiptItem::create([
-                    'receipt_id'     => $receipt->id,
-                    'product_id'     => $item['product_id'],
-                    'cantidad'       => $item['cantidad'],
-                    'costo_unitario' => $item['costo_unitario'],
-                ]);
-
-                $inventory = Inventory::firstOrCreate(
-                    ['product_id' => $item['product_id'], 'sede_id' => $receipt->sede_id],
-                    ['cantidad_stock' => 0]
-                );
-
-                $stockNuevo = $inventory->cantidad_stock + $item['cantidad'];
-
-                $inventory->update([
-                    'cantidad_stock'       => $stockNuevo,
-                    'ultima_actualizacion' => now(),
-                ]);
-
-                $product = Product::find($item['product_id']);
-
-                InventoryMovement::create([
-                    'product_id'       => $item['product_id'],
-                    'sede_id'          => $receipt->sede_id,
-                    'tipo'             => 'entrada',
-                    'cantidad'         => $item['cantidad'],
-                    'costo_unitario'   => $item['costo_unitario'],
-                    'motivo'           => "Recepción mercancía — {$receipt->supplier_name}",
-                    'reference_id'     => $receipt->id,
-                    'reference_type'   => 'receipt',
-                    'user_id'          => auth()->id(),
-                    'fecha_movimiento' => now(),
-                ]);
-
-                $oldStock = $inventory->cantidad_stock - $item['cantidad'];
-                if ($oldStock + $item['cantidad'] > 0) {
-                    $newAvgCost = (($oldStock * ($product->precio_compra ?? 0)) + ($item['cantidad'] * $item['costo_unitario']))
-                        / ($oldStock + $item['cantidad']);
-                    $product->update(['precio_compra' => round($newAvgCost, 2)]);
+                if (! $lockedReceipt->isPending()) {
+                    throw new \RuntimeException('Esta recepción ya fue procesada.');
                 }
 
-                if ($stockNuevo >= $product->stock_minimo) {
-                    StockAlert::where('product_id', $product->id)
-                        ->where('sede_id', $receipt->sede_id)
-                        ->update(['alerta_activa' => false]);
+                // sede_id_override inside transaction so the UPDATE is atomic with stock changes
+                if ($lockedReceipt->sede_id === null) {
+                    if (empty($validated['sede_id_override'])) {
+                        throw new \RuntimeException('Esta recepción no tiene sede asignada. Selecciona la sede de destino antes de aprobar.');
+                    }
+                    $lockedReceipt->update(['sede_id' => $validated['sede_id_override']]);
+                    $lockedReceipt->refresh();
                 }
-            }
 
-            $receipt->update([
-                'estado'           => 'aprobado',
-                'aprobado_por'     => auth()->id(),
-                'aprobado_at'      => now(),
-                'notas_aprobacion' => $validated['notas_aprobacion'] ?? null,
-            ]);
+                // Sort ASC by product_id for deterministic lock acquisition (deadlock prevention)
+                $items = collect($validated['items'])->sortBy('product_id')->values();
 
-            // ── Register supplier payment — always, session or not ───────────────
-            $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $receipt->id)
-                ->where('source_type', 'other_branch')
-                ->sum('amount');
+                foreach ($items as $item) {
+                    InventoryReceiptItem::create([
+                        'receipt_id'     => $lockedReceipt->id,
+                        'product_id'     => $item['product_id'],
+                        'cantidad'       => $item['cantidad'],
+                        'costo_unitario' => $item['costo_unitario'],
+                    ]);
 
-            $localAmount = max(0, (float) $receipt->monto_pagado - $externalTotal);
-
-            if ($localAmount > 0) {
-                $activeSession = CashSession::where('sede_id', $receipt->sede_id)
-                    ->whereIn('status', ['open', 'pending_closing'])
-                    ->latest('opened_at')
-                    ->first();
-
-                $movement = CashMovement::create([
-                    'sede_id'         => $receipt->sede_id,
-                    'user_id'         => $receipt->user_id,
-                    'cash_session_id' => $activeSession?->id,
-                    'type'            => 'pago_proveedor',
-                    'amount'          => $localAmount,
-                    'motivo'          => "Pago proveedor: {$receipt->supplier_name}",
-                    'observaciones'   => "Recepción #{$receipt->id} aprobada",
-                    'status'          => $activeSession ? 'aprobado' : 'pendiente',
-                    'approved_by'     => $activeSession ? auth()->id() : null,
-                    'approved_at'     => $activeSession ? now() : null,
-                ]);
-
-                if (! $activeSession) {
-                    ActivityLogger::log(
-                        'receipt.payment.deferred',
-                        "Pago proveedor diferido — sin sesión activa. Recepción #{$receipt->id} · {$receipt->supplier_name} · \${$localAmount}" . ($receipt->sede ? ' · ' . $receipt->sede->nombre : ''),
-                        $receipt,
-                        [],
-                        [
-                            'receipt_id'       => $receipt->id,
-                            'cash_movement_id' => $movement->id,
-                            'sede_id'          => $receipt->sede_id,
-                            'sede'             => $receipt->sede?->nombre,
-                            'proveedor'        => $receipt->supplier_name,
-                            'monto'            => $localAmount,
-                            'aprobador'        => auth()->user()->name,
-                            'aprobado_at'      => now()->toDateTimeString(),
-                        ]
+                    $inventoryResult = $this->stockService->entrada(
+                        productId:     (int) $item['product_id'],
+                        cantidad:      (int) $item['cantidad'],
+                        sedeId:        $lockedReceipt->sede_id,
+                        almacenId:     null,
+                        costoUnitario: (float) $item['costo_unitario'],
+                        userId:        auth()->id(),
+                        motivo:        "Recepción mercancía — {$lockedReceipt->supplier_name}",
+                        referenceId:   $lockedReceipt->id,
+                        referenceType: 'receipt',
                     );
-                }
-            }
-            // ─────────────────────────────────────────────────────────────────────
 
-            ActivityLogger::log(
-                'recepcion.aprobada',
-                "Recepción aprobada: {$receipt->supplier_name} · \${$receipt->monto_pagado}" . ($receipt->sede ? " · " . $receipt->sede->nombre : ""),
-                $receipt
-            );
-        });
+                    $product  = Product::find($item['product_id']);
+                    $oldStock = $inventoryResult->cantidad_stock - $item['cantidad'];
+
+                    if ($oldStock + $item['cantidad'] > 0) {
+                        $newAvgCost = (($oldStock * ($product->precio_compra ?? 0)) + ($item['cantidad'] * $item['costo_unitario']))
+                            / ($oldStock + $item['cantidad']);
+                        $product->update(['precio_compra' => round($newAvgCost, 2)]);
+                    }
+
+                    if ($inventoryResult->cantidad_stock >= $product->stock_minimo) {
+                        StockAlert::where('product_id', $product->id)
+                            ->where('sede_id', $lockedReceipt->sede_id)
+                            ->update(['alerta_activa' => false]);
+                    }
+                }
+
+                $lockedReceipt->update([
+                    'estado'           => 'aprobado',
+                    'aprobado_por'     => auth()->id(),
+                    'aprobado_at'      => now(),
+                    'notas_aprobacion' => $validated['notas_aprobacion'] ?? null,
+                ]);
+
+                // ── Register supplier payment — always, session or not ────────────
+                $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $lockedReceipt->id)
+                    ->where('source_type', 'other_branch')
+                    ->sum('amount');
+
+                $localAmount = max(0, (float) $lockedReceipt->monto_pagado - $externalTotal);
+
+                if ($localAmount > 0) {
+                    $activeSession = CashSession::where('sede_id', $lockedReceipt->sede_id)
+                        ->whereIn('status', ['open', 'pending_closing'])
+                        ->latest('opened_at')
+                        ->first();
+
+                    $movement = CashMovement::create([
+                        'sede_id'         => $lockedReceipt->sede_id,
+                        'user_id'         => $lockedReceipt->user_id,
+                        'cash_session_id' => $activeSession?->id,
+                        'type'            => 'pago_proveedor',
+                        'amount'          => $localAmount,
+                        'motivo'          => "Pago proveedor: {$lockedReceipt->supplier_name}",
+                        'observaciones'   => "Recepción #{$lockedReceipt->id} aprobada",
+                        'status'          => $activeSession ? 'aprobado' : 'pendiente',
+                        'approved_by'     => $activeSession ? auth()->id() : null,
+                        'approved_at'     => $activeSession ? now() : null,
+                    ]);
+
+                    if (! $activeSession) {
+                        ActivityLogger::log(
+                            'receipt.payment.deferred',
+                            "Pago proveedor diferido — sin sesión activa. Recepción #{$lockedReceipt->id} · {$lockedReceipt->supplier_name} · \${$localAmount}" . ($lockedReceipt->sede ? ' · ' . $lockedReceipt->sede->nombre : ''),
+                            $lockedReceipt,
+                            [],
+                            [
+                                'receipt_id'       => $lockedReceipt->id,
+                                'cash_movement_id' => $movement->id,
+                                'sede_id'          => $lockedReceipt->sede_id,
+                                'sede'             => $lockedReceipt->sede?->nombre,
+                                'proveedor'        => $lockedReceipt->supplier_name,
+                                'monto'            => $localAmount,
+                                'aprobador'        => auth()->user()->name,
+                                'aprobado_at'      => now()->toDateTimeString(),
+                            ]
+                        );
+                    }
+                }
+                // ────────────────────────────────────────────────────────────────
+
+                ActivityLogger::log(
+                    'recepcion.aprobada',
+                    "Recepción aprobada: {$lockedReceipt->supplier_name} · \${$lockedReceipt->monto_pagado}" . ($lockedReceipt->sede ? " · " . $lockedReceipt->sede->nombre : ""),
+                    $lockedReceipt
+                );
+            });
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('inventory-receipts.index')
             ->with('success', 'Recepción aprobada. Inventario actualizado correctamente.');
