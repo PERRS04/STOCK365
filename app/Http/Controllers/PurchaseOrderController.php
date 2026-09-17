@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryReceipt;
 use App\Models\PurchaseOrder;
 use App\Models\Provider;
 use App\Models\Product;
-use App\Models\Inventory;
-use App\Models\InventoryMovement;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -103,44 +103,110 @@ class PurchaseOrderController extends Controller
         $this->authorize('boss');
 
         $validated = $request->validate([
-            'items' => 'required|array',
-            'items.*.id' => 'required|exists:purchase_order_items,id',
-            'items.*.cantidad_recibida' => 'required|integer|min:0',
+            'items'                     => 'required|array|min:1',
+            'items.*.id'                => 'required|integer',
+            'items.*.cantidad_recibida' => 'required|integer|min:1',
         ]);
 
-        return DB::transaction(function () use ($validated, $order) {
-            foreach ($validated['items'] as $item) {
-                $poItem = $order->items()->findOrFail($item['id']);
-                $poItem->update(['cantidad_recibida' => $item['cantidad_recibida']]);
+        try {
+            $receipt = DB::transaction(function () use ($validated, $order) {
+                // Lock PO to prevent concurrent receipts
+                $lockedOrder = PurchaseOrder::query()
+                    ->lockForUpdate()
+                    ->findOrFail($order->id);
 
-                // Actualizar inventario para cada sede
-                // Por ahora, asumimos que se distribuye en la sede principal
-                $sedes = request('sedes', [1]); // Default a sede 1 si no especifica
-
-                foreach ($sedes as $sedeId) {
-                    $inventory = Inventory::firstOrCreate(
-                        ['product_id' => $poItem->product_id, 'sede_id' => $sedeId],
-                        ['cantidad_stock' => 0]
+                // Re-validate estado under lock — never trust pre-lock state
+                if ($lockedOrder->estado !== 'enviado') {
+                    throw new \RuntimeException(
+                        $lockedOrder->estado === 'recibido'
+                            ? 'Este pedido ya fue recibido.'
+                            : 'Solo se puede recibir un pedido en estado "enviado".'
                     );
-
-                    $inventory->increment('cantidad_stock', $item['cantidad_recibida']);
-
-                    InventoryMovement::create([
-                        'product_id' => $poItem->product_id,
-                        'sede_id' => $sedeId,
-                        'tipo' => 'entrada',
-                        'cantidad' => $item['cantidad_recibida'],
-                        'motivo' => 'Pedido de compra #' . $order->id,
-                        'user_id' => Auth::id(),
-                        'fecha_movimiento' => now(),
-                    ]);
                 }
-            }
 
-            $order->update(['estado' => 'recibido']);
+                // Anti-double-submit: reject if active receipt already exists
+                $hasActiveReceipt = InventoryReceipt::where('purchase_order_id', $lockedOrder->id)
+                    ->whereIn('estado', ['pendiente', 'aprobado'])
+                    ->exists();
 
-            return redirect()->back()
-                ->with('success', 'Mercadería recibida y stock actualizado');
-        });
+                if ($hasActiveReceipt) {
+                    throw new \RuntimeException('Ya existe una recepción activa para este pedido.');
+                }
+
+                // Load PO items for ownership validation
+                $poItemsById = $lockedOrder->items->keyBy('id');
+
+                // Reject duplicate item IDs in the same request
+                $inputIds = collect($validated['items'])->pluck('id');
+                if ($inputIds->unique()->count() !== $inputIds->count()) {
+                    throw new \RuntimeException('El pedido contiene ítems duplicados en la solicitud.');
+                }
+
+                // Validate ownership and quantities — all before any mutation
+                $resolvedItems = [];
+                foreach ($validated['items'] as $input) {
+                    $poItem = $poItemsById->get((int) $input['id']);
+
+                    if (! $poItem) {
+                        throw new \RuntimeException(
+                            "El ítem #{$input['id']} no pertenece a este pedido."
+                        );
+                    }
+
+                    if ((int) $input['cantidad_recibida'] > $poItem->cantidad) {
+                        throw new \RuntimeException(
+                            "La cantidad recibida ({$input['cantidad_recibida']}) supera " .
+                            "la cantidad ordenada ({$poItem->cantidad}) para el ítem #{$poItem->id}."
+                        );
+                    }
+
+                    $resolvedItems[] = [
+                        'poItem'            => $poItem,
+                        'cantidad_recibida' => (int) $input['cantidad_recibida'],
+                    ];
+                }
+
+                // Deterministic order: product_id ASC, then item id ASC (deadlock prevention prep)
+                usort($resolvedItems, fn ($a, $b) =>
+                    $a['poItem']->product_id !== $b['poItem']->product_id
+                        ? $a['poItem']->product_id <=> $b['poItem']->product_id
+                        : $a['poItem']->id <=> $b['poItem']->id
+                );
+
+                // Persist received quantities on PO items
+                foreach ($resolvedItems as $item) {
+                    $item['poItem']->update(['cantidad_recibida' => $item['cantidad_recibida']]);
+                }
+
+                $lockedOrder->load('provider');
+
+                // Create pending receipt — no stock mutation, no payment (monto_pagado=0)
+                $receipt = InventoryReceipt::create([
+                    'purchase_order_id' => $lockedOrder->id,
+                    'sede_id'           => null,
+                    'user_id'           => auth()->id(),
+                    'provider_id'       => $lockedOrder->provider_id,
+                    'supplier_name'     => $lockedOrder->provider->nombre,
+                    'monto_pagado'      => 0,
+                    'observaciones'     => "Originado en pedido de compra #{$lockedOrder->id}",
+                    'estado'            => 'pendiente',
+                ]);
+
+                ActivityLogger::log(
+                    'purchase_order.receipt_created',
+                    "Recepción #{$receipt->id} creada desde pedido #{$lockedOrder->id} · {$lockedOrder->provider->nombre}",
+                    $receipt,
+                    [],
+                    ['purchase_order_id' => $lockedOrder->id]
+                );
+
+                return $receipt;
+            });
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('inventory-receipts.show', $receipt)
+            ->with('success', 'Recepción creada. Pendiente de aprobación.');
     }
 }
