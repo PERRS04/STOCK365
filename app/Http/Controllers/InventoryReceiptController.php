@@ -7,6 +7,7 @@ use App\Models\CashSession;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
 use App\Models\ReceiptPaymentAllocation;
 use App\Models\Sede;
 use App\Models\StockAlert;
@@ -185,7 +186,9 @@ class InventoryReceiptController extends Controller
         );
         $montoPagado = round((float) $receipt->monto_pagado, 2);
 
-        if (abs($calculatedTotal - $montoPagado) > 0.005) {
+        $isPurchaseOrderReceipt = $receipt->purchase_order_id !== null;
+
+        if (! $isPurchaseOrderReceipt && abs($calculatedTotal - $montoPagado) > 0.005) {
             return back()
                 ->withInput()
                 ->with('audit_monto_pagado',     $montoPagado)
@@ -213,6 +216,53 @@ class InventoryReceiptController extends Controller
                     $lockedReceipt->update(['sede_id' => $validated['sede_id_override']]);
                     $lockedReceipt->refresh();
                 }
+
+                // ── PO-receipt: lock PO, validate items, check state ────────────
+                $lockedOrder = null;
+                if ($lockedReceipt->purchase_order_id !== null) {
+                    $lockedOrder = PurchaseOrder::query()
+                        ->lockForUpdate()
+                        ->findOrFail($lockedReceipt->purchase_order_id);
+
+                    if ($lockedOrder->estado !== 'enviado') {
+                        throw new \RuntimeException(
+                            $lockedOrder->estado === 'recibido'
+                                ? 'El pedido vinculado ya fue marcado como recibido.'
+                                : 'El pedido vinculado no está en estado "enviado".'
+                        );
+                    }
+
+                    $expectedByProduct = $lockedOrder->items
+                        ->filter(fn($item) => $item->cantidad_recibida > 0)
+                        ->groupBy('product_id')
+                        ->map(fn($group) => $group->sum('cantidad_recibida'));
+
+                    if ($expectedByProduct->isEmpty()) {
+                        throw new \RuntimeException('El pedido no tiene cantidades registradas para recepción.');
+                    }
+
+                    $actualByProduct = collect($validated['items'])
+                        ->groupBy(fn($item) => (int) $item['product_id'])
+                        ->map(fn($group) => $group->sum('cantidad'));
+
+                    $expectedKeys = $expectedByProduct->keys()->map(fn($k) => (int) $k)->sort()->values()->toArray();
+                    $actualKeys   = $actualByProduct->keys()->map(fn($k) => (int) $k)->sort()->values()->toArray();
+
+                    if ($expectedKeys !== $actualKeys) {
+                        throw new \RuntimeException('Los productos enviados no corresponden a los del pedido de compra.');
+                    }
+
+                    foreach ($expectedByProduct as $productId => $expectedQty) {
+                        $actualQty = (int) $actualByProduct->get((int) $productId, 0);
+                        if ($actualQty !== (int) $expectedQty) {
+                            throw new \RuntimeException(
+                                "La cantidad aprobada para el producto #{$productId} ({$actualQty}) " .
+                                "no coincide con la recibida en el pedido ({$expectedQty})."
+                            );
+                        }
+                    }
+                }
+                // ────────────────────────────────────────────────────────────────
 
                 // Sort ASC by product_id for deterministic lock acquisition (deadlock prevention)
                 $items = collect($validated['items'])->sortBy('product_id')->values();
@@ -260,52 +310,58 @@ class InventoryReceiptController extends Controller
                     'notas_aprobacion' => $validated['notas_aprobacion'] ?? null,
                 ]);
 
-                // ── Register supplier payment — always, session or not ────────────
-                $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $lockedReceipt->id)
-                    ->where('source_type', 'other_branch')
-                    ->sum('amount');
+                // ── Register supplier payment — direct receipts only ─────────────
+                if ($lockedReceipt->purchase_order_id === null) {
+                    $externalTotal = (float) ReceiptPaymentAllocation::where('inventory_receipt_id', $lockedReceipt->id)
+                        ->where('source_type', 'other_branch')
+                        ->sum('amount');
 
-                $localAmount = max(0, (float) $lockedReceipt->monto_pagado - $externalTotal);
+                    $localAmount = max(0, (float) $lockedReceipt->monto_pagado - $externalTotal);
 
-                if ($localAmount > 0) {
-                    $activeSession = CashSession::where('sede_id', $lockedReceipt->sede_id)
-                        ->whereIn('status', ['open', 'pending_closing'])
-                        ->latest('opened_at')
-                        ->first();
+                    if ($localAmount > 0) {
+                        $activeSession = CashSession::where('sede_id', $lockedReceipt->sede_id)
+                            ->whereIn('status', ['open', 'pending_closing'])
+                            ->latest('opened_at')
+                            ->first();
 
-                    $movement = CashMovement::create([
-                        'sede_id'         => $lockedReceipt->sede_id,
-                        'user_id'         => $lockedReceipt->user_id,
-                        'cash_session_id' => $activeSession?->id,
-                        'type'            => 'pago_proveedor',
-                        'amount'          => $localAmount,
-                        'motivo'          => "Pago proveedor: {$lockedReceipt->supplier_name}",
-                        'observaciones'   => "Recepción #{$lockedReceipt->id} aprobada",
-                        'status'          => $activeSession ? 'aprobado' : 'pendiente',
-                        'approved_by'     => $activeSession ? auth()->id() : null,
-                        'approved_at'     => $activeSession ? now() : null,
-                    ]);
+                        $movement = CashMovement::create([
+                            'sede_id'         => $lockedReceipt->sede_id,
+                            'user_id'         => $lockedReceipt->user_id,
+                            'cash_session_id' => $activeSession?->id,
+                            'type'            => 'pago_proveedor',
+                            'amount'          => $localAmount,
+                            'motivo'          => "Pago proveedor: {$lockedReceipt->supplier_name}",
+                            'observaciones'   => "Recepción #{$lockedReceipt->id} aprobada",
+                            'status'          => $activeSession ? 'aprobado' : 'pendiente',
+                            'approved_by'     => $activeSession ? auth()->id() : null,
+                            'approved_at'     => $activeSession ? now() : null,
+                        ]);
 
-                    if (! $activeSession) {
-                        ActivityLogger::log(
-                            'receipt.payment.deferred',
-                            "Pago proveedor diferido — sin sesión activa. Recepción #{$lockedReceipt->id} · {$lockedReceipt->supplier_name} · \${$localAmount}" . ($lockedReceipt->sede ? ' · ' . $lockedReceipt->sede->nombre : ''),
-                            $lockedReceipt,
-                            [],
-                            [
-                                'receipt_id'       => $lockedReceipt->id,
-                                'cash_movement_id' => $movement->id,
-                                'sede_id'          => $lockedReceipt->sede_id,
-                                'sede'             => $lockedReceipt->sede?->nombre,
-                                'proveedor'        => $lockedReceipt->supplier_name,
-                                'monto'            => $localAmount,
-                                'aprobador'        => auth()->user()->name,
-                                'aprobado_at'      => now()->toDateTimeString(),
-                            ]
-                        );
+                        if (! $activeSession) {
+                            ActivityLogger::log(
+                                'receipt.payment.deferred',
+                                "Pago proveedor diferido — sin sesión activa. Recepción #{$lockedReceipt->id} · {$lockedReceipt->supplier_name} · \${$localAmount}" . ($lockedReceipt->sede ? ' · ' . $lockedReceipt->sede->nombre : ''),
+                                $lockedReceipt,
+                                [],
+                                [
+                                    'receipt_id'       => $lockedReceipt->id,
+                                    'cash_movement_id' => $movement->id,
+                                    'sede_id'          => $lockedReceipt->sede_id,
+                                    'sede'             => $lockedReceipt->sede?->nombre,
+                                    'proveedor'        => $lockedReceipt->supplier_name,
+                                    'monto'            => $localAmount,
+                                    'aprobador'        => auth()->user()->name,
+                                    'aprobado_at'      => now()->toDateTimeString(),
+                                ]
+                            );
+                        }
                     }
                 }
                 // ────────────────────────────────────────────────────────────────
+
+                if ($lockedOrder !== null) {
+                    $lockedOrder->update(['estado' => 'recibido']);
+                }
 
                 ActivityLogger::log(
                     'recepcion.aprobada',

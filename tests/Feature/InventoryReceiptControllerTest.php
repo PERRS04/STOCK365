@@ -10,6 +10,8 @@ use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\Product;
 use App\Models\Provider;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderItem;
 use App\Models\Sede;
 use App\Models\StockAlert;
 use App\Models\User;
@@ -914,6 +916,1100 @@ class InventoryReceiptControllerTest extends TestCase
             \Illuminate\Support\Facades\DB::statement(
                 'ALTER TABLE inventory_receipts MODIFY COLUMN sede_id BIGINT UNSIGNED NOT NULL'
             );
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ETAPA 6D — PO-RECEIPT APPROVAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── PO-receipt helpers ────────────────────────────────────────────────────
+
+    private function makePoProvider(): Provider
+    {
+        return Provider::create(['nombre' => 'Proveedor PO ' . uniqid(), 'activo' => true]);
+    }
+
+    private function makePo(Provider $provider, string $estado = 'enviado'): PurchaseOrder
+    {
+        return PurchaseOrder::create([
+            'provider_id'  => $provider->id,
+            'created_by'   => $this->approver->id,
+            'fecha_pedido' => now()->toDateString(),
+            'total'        => 100.00,
+            'estado'       => $estado,
+        ]);
+    }
+
+    private function addPoItem(PurchaseOrder $po, Product $product, int $cantidad, int $cantidadRecibida = 0): PurchaseOrderItem
+    {
+        return $po->items()->create([
+            'product_id'        => $product->id,
+            'cantidad'          => $cantidad,
+            'precio_unitario'   => 10.00,
+            'subtotal'          => $cantidad * 10.00,
+            'cantidad_recibida' => $cantidadRecibida,
+        ]);
+    }
+
+    /**
+     * Creates a pending PO-receipt (purchase_order_id set, monto_pagado=0, sede_id=$sede->id).
+     */
+    private function makePoReceipt(PurchaseOrder $po, Sede $sede, array $overrides = []): InventoryReceipt
+    {
+        return InventoryReceipt::create(array_merge([
+            'purchase_order_id' => $po->id,
+            'sede_id'           => $sede->id,
+            'user_id'           => $this->approver->id,
+            'provider_id'       => $po->provider_id,
+            'supplier_name'     => 'Proveedor PO Test',
+            'monto_pagado'      => 0,
+            'estado'            => 'pendiente',
+        ], $overrides));
+    }
+
+    // ── 43. PO-receipt: redirige a index tras aprobación ─────────────────────
+
+    #[Test]
+    public function test_po_receipt_redirige_a_index_tras_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 8.00]],
+        ]);
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+    }
+
+    // ── 44. PO-receipt: flash success tras aprobación ────────────────────────
+
+    #[Test]
+    public function test_po_receipt_flash_success_tras_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 5.00]],
+        ]);
+
+        $response->assertSessionHas('success');
+    }
+
+    // ── 45. PO-receipt: estado cambia a aprobado ──────────────────────────────
+
+    #[Test]
+    public function test_po_receipt_estado_cambia_a_aprobado(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventory_receipts', [
+            'id'     => $receipt->id,
+            'estado' => 'aprobado',
+        ]);
+    }
+
+    // ── 46. PO-receipt: aprobado_por registrado ───────────────────────────────
+
+    #[Test]
+    public function test_po_receipt_aprobado_por_registrado(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventory_receipts', [
+            'id'           => $receipt->id,
+            'aprobado_por' => $this->approver->id,
+        ]);
+    }
+
+    // ── 47. PO-receipt: guard bypassed — items total ≠ monto_pagado=0 ─────────
+
+    #[Test]
+    public function test_po_receipt_guard_bypassed_items_total_no_coincide_con_monto_pagado(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede); // monto_pagado = 0
+
+        // items total = 10 × $15 = $150, monto_pagado = 0 → would fail for direct receipt
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 15.00]],
+        ]);
+
+        $response->assertSessionMissing('errors');
+        $response->assertRedirect(route('inventory-receipts.index'));
+    }
+
+    // ── 48. PO-receipt: costo libre — distintos costos aceptados ─────────────
+
+    #[Test]
+    public function test_po_receipt_costo_libre_acepta_cualquier_costo_unitario(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // costo_unitario = 0 is allowed (min:0 in validation)
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 5, 'costo_unitario' => 0]],
+        ]);
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+    }
+
+    // ── 49. PO-receipt: NO crea CashMovement ─────────────────────────────────
+
+    #[Test]
+    public function test_po_receipt_no_crea_cash_movement(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $before = CashMovement::count();
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertEquals($before, CashMovement::count());
+    }
+
+    // ── 50. PO-receipt: NO crea CashMovement aunque haya sesión activa ────────
+
+    #[Test]
+    public function test_po_receipt_no_crea_cash_movement_con_sesion_activa(): void
+    {
+        CashSession::create([
+            'user_id'        => $this->approver->id,
+            'sede_id'        => $this->sede->id,
+            'opening_amount' => 500,
+            'opened_at'      => now(),
+            'status'         => 'open',
+        ]);
+
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $before = CashMovement::count();
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertEquals($before, CashMovement::count());
+    }
+
+    // ── 51. Direct receipt: sigue creando CashMovement (regresión) ───────────
+
+    #[Test]
+    public function test_direct_receipt_sigue_creando_cash_movement_regresion(): void
+    {
+        $product = $this->makeProduct();
+
+        $before = CashMovement::count();
+
+        // $this->receipt is direct (purchase_order_id=null), monto_pagado=100
+        $this->postApprove($this->receipt, $this->defaultPayload($product));
+
+        $this->assertEquals($before + 1, CashMovement::count());
+    }
+
+    // ── 52. Direct receipt: monto mismatch sigue bloqueando (regresión) ───────
+
+    #[Test]
+    public function test_direct_receipt_monto_mismatch_sigue_bloqueando_regresion(): void
+    {
+        $product = $this->makeProduct();
+
+        // receipt monto_pagado=100, items total = 5×10 = 50 → mismatch for direct receipt
+        $response = $this->postApprove($this->receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 5, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertSessionHasErrors('monto_items');
+    }
+
+    // ── 53. PO-receipt: stock aumenta correctamente ───────────────────────────
+
+    #[Test]
+    public function test_po_receipt_stock_aumenta_correctamente(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 8, 8);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 8, 'costo_unitario' => 12.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $this->sede->id,
+            'cantidad_stock' => 8,
+        ]);
+    }
+
+    // ── 54. PO-receipt: stock acumula sobre existente ─────────────────────────
+
+    #[Test]
+    public function test_po_receipt_stock_acumula_sobre_existente(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->makeInventory($product, 20);
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 5.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $this->sede->id,
+            'cantidad_stock' => 30,
+        ]);
+    }
+
+    // ── 55. PO-receipt: genera movimiento tipo=entrada ────────────────────────
+
+    #[Test]
+    public function test_po_receipt_genera_movimiento_tipo_entrada(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 6, 6);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 6, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'tipo'       => 'entrada',
+            'cantidad'   => 6,
+        ]);
+    }
+
+    // ── 56. PO-receipt: movimiento tiene reference_type=receipt ──────────────
+
+    #[Test]
+    public function test_po_receipt_movimiento_reference_type_receipt(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 5, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id'     => $product->id,
+            'reference_id'   => $receipt->id,
+            'reference_type' => 'receipt',
+        ]);
+    }
+
+    // ── 57. PO cambia a recibido tras aprobación ──────────────────────────────
+
+    #[Test]
+    public function test_po_cambia_a_recibido_tras_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('purchase_orders', [
+            'id'     => $po->id,
+            'estado' => 'recibido',
+        ]);
+    }
+
+    // ── 58. PO en estado pendiente bloquea aprobación ─────────────────────────
+
+    #[Test]
+    public function test_po_pendiente_bloquea_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov, 'pendiente'); // not 'enviado'
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'pendiente']);
+    }
+
+    // ── 59. PO ya recibido bloquea aprobación ────────────────────────────────
+
+    #[Test]
+    public function test_po_recibido_bloquea_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov, 'recibido'); // already received
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'recibido']);
+    }
+
+    // ── 60. PO sin cantidades registradas bloquea aprobación ─────────────────
+
+    #[Test]
+    public function test_po_sin_cantidades_registradas_bloquea_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 0); // cantidad_recibida = 0
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
+    // ── 61. Producto extra en items bloquea aprobación ────────────────────────
+
+    #[Test]
+    public function test_producto_extra_en_items_bloquea_aprobacion(): void
+    {
+        $prov     = $this->makePoProvider();
+        $po       = $this->makePo($prov);
+        $product  = $this->makeProduct();
+        $stranger = $this->makeProduct(); // not in PO
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $product->id,  'cantidad' => 10, 'costo_unitario' => 10.00],
+                ['product_id' => $stranger->id, 'cantidad' => 5,  'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'pendiente']);
+    }
+
+    // ── 62. Producto faltante en items bloquea aprobación ─────────────────────
+
+    #[Test]
+    public function test_producto_faltante_en_items_bloquea_aprobacion(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 10, 10);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Only submitting prodA, missing prodB
+        $response = $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 10, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
+    // ── 63. Cantidad incorrecta bloquea aprobación ────────────────────────────
+
+    #[Test]
+    public function test_cantidad_incorrecta_bloquea_aprobacion(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 7); // cantidad_recibida = 7
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Submit 10 instead of 7
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'pendiente']);
+    }
+
+    // ── 64. Cantidad correcta = aprobación exitosa ───────────────────────────
+
+    #[Test]
+    public function test_cantidad_correcta_aprobacion_exitosa(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 7);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 7, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'aprobado']);
+    }
+
+    // ── 65. Dos PO items mismo producto: cantidades se agrupan ───────────────
+
+    #[Test]
+    public function test_dos_po_items_mismo_producto_cantidades_agrupadas(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        // Two PO rows for the same product: 3 + 4 = 7 total
+        $this->addPoItem($po, $product, 5, 3);
+        $this->addPoItem($po, $product, 8, 4);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Submit grouped total: 7
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 7, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'aprobado']);
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $this->sede->id,
+            'cantidad_stock' => 7,
+        ]);
+    }
+
+    // ── 66. Multi-item PO: ambos productos aprobados correctamente ───────────
+
+    #[Test]
+    public function test_po_multi_item_stock_correcto(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 10, 6);
+        $this->addPoItem($po, $prodB, 8, 8);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 6, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 8, 'costo_unitario' => 12.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('inventories', ['product_id' => $prodA->id, 'cantidad_stock' => 6]);
+        $this->assertDatabaseHas('inventories', ['product_id' => $prodB->id, 'cantidad_stock' => 8]);
+    }
+
+    // ── 67. Multi-item PO: PO cambia a recibido ───────────────────────────────
+
+    #[Test]
+    public function test_po_multi_item_po_cambia_a_recibido(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 10, 10);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 10, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 5,  'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'recibido']);
+    }
+
+    // ── 68. Multi-item PO: sin CashMovement ──────────────────────────────────
+
+    #[Test]
+    public function test_po_multi_item_no_crea_cash_movement(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 5, 5);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $before = CashMovement::count();
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertEquals($before, CashMovement::count());
+    }
+
+    // ── 69. PO-receipt: sede_id=null requiere override ────────────────────────
+
+    #[Test]
+    public function test_po_receipt_sede_null_requiere_override(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede, ['sede_id' => null]);
+
+        $response = $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'pendiente']);
+    }
+
+    // ── 70. PO-receipt: sede_id_override aplicado correctamente ──────────────
+
+    #[Test]
+    public function test_po_receipt_sede_override_aplicado(): void
+    {
+        $prov     = $this->makePoProvider();
+        $po       = $this->makePo($prov);
+        $product  = $this->makeProduct();
+        $otraSede = Sede::factory()->create();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede, ['sede_id' => null]);
+
+        $response = $this->postApprove($receipt, [
+            'items'            => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+            'sede_id_override' => $otraSede->id,
+        ]);
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'sede_id' => $otraSede->id]);
+        $this->assertDatabaseHas('inventories', ['product_id' => $product->id, 'sede_id' => $otraSede->id]);
+    }
+
+    // ── 71. PO-receipt: rollback — PO não muda se transação falha ─────────────
+
+    #[Test]
+    public function test_po_receipt_rollback_po_nao_muda_se_falha(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $prodA   = $this->makeProduct();
+        $prodB   = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 5, 5);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $this->makeInventory($prodA, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Soft-delete prodB: Product::find(B) → null inside transaction → TypeError → rollback
+        $prodB->delete();
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'enviado']);
+    }
+
+    // ── 72. PO-receipt: rollback — stock não muda se transação falha ──────────
+
+    #[Test]
+    public function test_po_receipt_rollback_stock_nao_muda_se_falha(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $prodA   = $this->makeProduct();
+        $prodB   = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 5, 5);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $this->makeInventory($prodA, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $prodB->delete();
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $prodA->id,
+            'sede_id'        => $this->sede->id,
+            'cantidad_stock' => 10,
+        ]);
+    }
+
+    // ── 73. PO-receipt: rollback — receipt permanece pendiente ───────────────
+
+    #[Test]
+    public function test_po_receipt_rollback_receipt_permanece_pendiente(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $prodA   = $this->makeProduct();
+        $prodB   = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 5, 5);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $this->makeInventory($prodA, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $prodB->delete();
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('inventory_receipts', [
+            'id'           => $receipt->id,
+            'estado'       => 'pendiente',
+            'aprobado_por' => null,
+        ]);
+    }
+
+    // ── 74. PO-receipt: doble aprobación rechazada ───────────────────────────
+
+    #[Test]
+    public function test_po_receipt_doble_aprobacion_rechazada(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $payload = ['items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]]];
+
+        $this->postApprove($receipt, $payload);
+
+        $response = $this->postApprove($receipt, $payload);
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
+    // ── 75. PO-receipt: doble aprobação não duplica stock ────────────────────
+
+    #[Test]
+    public function test_po_receipt_doble_aprobacion_no_duplica_stock(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $payload = ['items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]]];
+
+        $this->postApprove($receipt, $payload);
+        $this->postApprove($receipt, $payload);
+
+        $this->assertDatabaseHas('inventories', [
+            'product_id'     => $product->id,
+            'sede_id'        => $this->sede->id,
+            'cantidad_stock' => 10,
+        ]);
+    }
+
+    // ── 76. PO-receipt: rechazo funciona correctamente ────────────────────────
+
+    #[Test]
+    public function test_po_receipt_rechazo_funciona(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $response = $this->actingAs($this->approver)->patch(
+            route('inventory-receipts.reject', $receipt),
+            ['notas_aprobacion' => 'Rechazado por prueba']
+        );
+
+        $response->assertRedirect(route('inventory-receipts.index'));
+        $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'rechazado']);
+    }
+
+    // ── 77. PO-receipt: rechazo NO cambia estado de PO ───────────────────────
+
+    #[Test]
+    public function test_po_receipt_rechazo_no_cambia_estado_po(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->actingAs($this->approver)->patch(
+            route('inventory-receipts.reject', $receipt),
+            ['notas_aprobacion' => 'Rechazado']
+        );
+
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'enviado']);
+    }
+
+    // ── 78. PO-receipt: notas_aprobacion almacenadas ──────────────────────────
+
+    #[Test]
+    public function test_po_receipt_notas_aprobacion_almacenadas(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items'            => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+            'notas_aprobacion' => 'Revisado en bodega',
+        ]);
+
+        $this->assertDatabaseHas('inventory_receipts', [
+            'id'               => $receipt->id,
+            'notas_aprobacion' => 'Revisado en bodega',
+        ]);
+    }
+
+    // ── 79. PO-receipt: InventoryReceiptItem creado por cada item ────────────
+
+    #[Test]
+    public function test_po_receipt_inventory_receipt_items_creados(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct();
+        $this->addPoItem($po, $prodA, 5, 5);
+        $this->addPoItem($po, $prodB, 3, 3);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodA->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodB->id, 'cantidad' => 3, 'costo_unitario' => 20.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('inventory_receipt_items', [
+            'receipt_id' => $receipt->id,
+            'product_id' => $prodA->id,
+            'cantidad'   => 5,
+        ]);
+        $this->assertDatabaseHas('inventory_receipt_items', [
+            'receipt_id' => $receipt->id,
+            'product_id' => $prodB->id,
+            'cantidad'   => 3,
+        ]);
+    }
+
+    // ── 80. PO-receipt: precio_compra actualizado (costo promedio) ────────────
+
+    #[Test]
+    public function test_po_receipt_precio_compra_actualizado(): void
+    {
+        // oldStock=10 @ $10, receive 10 @ $20 → avg = (100+200)/20 = $15
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct(5, 10.00);
+        $this->makeInventory($product, 10);
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 20.00]],
+        ]);
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'precio_compra' => 15.00]);
+    }
+
+    // ── 81. PO-receipt: alerta desactivada si stock suficiente ───────────────
+
+    #[Test]
+    public function test_po_receipt_alerta_desactivada_si_stock_suficiente(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct(5);
+        StockAlert::create([
+            'product_id'    => $product->id,
+            'sede_id'       => $this->sede->id,
+            'stock_actual'  => 0,
+            'stock_minimo'  => 5,
+            'alerta_activa' => true,
+            'fecha_alerta'  => now(),
+        ]);
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('stock_alerts', [
+            'product_id'    => $product->id,
+            'sede_id'       => $this->sede->id,
+            'alerta_activa' => false,
+        ]);
+    }
+
+    // ── 82. Items enviados en orden inverso → resultado correcto ──────────────
+
+    #[Test]
+    public function test_po_receipt_items_orden_inverso_resultado_correcto(): void
+    {
+        $prov  = $this->makePoProvider();
+        $po    = $this->makePo($prov);
+        $prodA = $this->makeProduct();
+        $prodB = $this->makeProduct(); // prodB.id > prodA.id
+        $this->addPoItem($po, $prodA, 8, 8);
+        $this->addPoItem($po, $prodB, 5, 5);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Submit reversed: B first, A second
+        $this->postApprove($receipt, [
+            'items' => [
+                ['product_id' => $prodB->id, 'cantidad' => 5, 'costo_unitario' => 10.00],
+                ['product_id' => $prodA->id, 'cantidad' => 8, 'costo_unitario' => 10.00],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('inventories', ['product_id' => $prodA->id, 'cantidad_stock' => 8]);
+        $this->assertDatabaseHas('inventories', ['product_id' => $prodB->id, 'cantidad_stock' => 5]);
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'recibido']);
+    }
+
+    // ── 83. Direct receipt con purchase_order_id=null: PO no afectada ─────────
+
+    #[Test]
+    public function test_direct_receipt_po_null_no_afecta_ninguna_po(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov); // PO exists but unrelated
+        $product = $this->makeProduct();
+
+        // $this->receipt has purchase_order_id=null
+        $this->postApprove($this->receipt, $this->defaultPayload($product));
+
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'enviado']);
+    }
+
+    // ── 84. PO-receipt: movimiento tiene sede_id correcto ────────────────────
+
+    #[Test]
+    public function test_po_receipt_movimiento_tiene_sede_correcto(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertDatabaseHas('inventory_movements', [
+            'product_id' => $product->id,
+            'sede_id'    => $this->sede->id,
+            'tipo'       => 'entrada',
+        ]);
+    }
+
+    // ── 85. PO-receipt: items_validation_error no deja receipt_items ──────────
+
+    #[Test]
+    public function test_po_receipt_validation_error_no_crea_receipt_items(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 7);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        // Wrong quantity: 10 instead of 7
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertEquals(
+            0,
+            InventoryReceiptItem::where('receipt_id', $receipt->id)->count()
+        );
+    }
+
+    // ── 86. PO-receipt: validation_error no crea inventory_movements ──────────
+
+    #[Test]
+    public function test_po_receipt_validation_error_no_crea_inventory_movements(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 7);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $before = InventoryMovement::count();
+
+        $this->postApprove($receipt, [
+            'items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]],
+        ]);
+
+        $this->assertEquals($before, InventoryMovement::count());
+    }
+
+    // ── 87. 403 sin permiso — PO-receipt ─────────────────────────────────────
+
+    #[Test]
+    public function test_po_receipt_403_sin_permiso(): void
+    {
+        $prov    = $this->makePoProvider();
+        $po      = $this->makePo($prov);
+        $product = $this->makeProduct();
+        $this->addPoItem($po, $product, 10, 10);
+        $receipt = $this->makePoReceipt($po, $this->sede);
+
+        $user = User::factory()->create(); // no permission
+
+        $response = $this->actingAs($user)->post(
+            route('inventory-receipts.approve', $receipt),
+            ['items' => [['product_id' => $product->id, 'cantidad' => 10, 'costo_unitario' => 10.00]]]
+        );
+
+        $response->assertStatus(403);
+    }
+
+    // ── 88. PO-receipt: rollback si ActivityLogger falla DESPUÉS de PO→recibido ─
+    //
+    // Forces ActivityLog::create to throw by truncating description VARCHAR(255)
+    // to VARCHAR(1). This is the only DB write that occurs after
+    // $lockedOrder->update(['estado' => 'recibido']), so it proves the
+    // DB::transaction wraps PO→recibido and rolls it back on any exception.
+
+    #[Test]
+    public function test_po_receipt_rollback_po_si_activity_log_falla_post_recibido(): void
+    {
+        \Illuminate\Support\Facades\DB::statement(
+            'ALTER TABLE activity_logs MODIFY COLUMN description VARCHAR(1) NOT NULL'
+        );
+        \Illuminate\Support\Facades\DB::purge();
+
+        try {
+            $prov    = $this->makePoProvider();
+            $po      = $this->makePo($prov);
+            $product = $this->makeProduct();
+            $this->addPoItem($po, $product, 5, 5);
+            $receipt = $this->makePoReceipt($po, $this->sede);
+
+            $this->postApprove($receipt, [
+                'items' => [['product_id' => $product->id, 'cantidad' => 5, 'costo_unitario' => 10.00]],
+            ]);
+
+            // PO must still be 'enviado' — rolled back
+            $this->assertDatabaseHas('purchase_orders', ['id' => $po->id, 'estado' => 'enviado']);
+
+            // Receipt must still be pendiente
+            $this->assertDatabaseHas('inventory_receipts', ['id' => $receipt->id, 'estado' => 'pendiente']);
+
+            // Stock must not have changed (0 rows or 0 quantity)
+            $this->assertEquals(
+                0,
+                \App\Models\Inventory::where('product_id', $product->id)
+                    ->where('sede_id', $this->sede->id)
+                    ->sum('cantidad_stock')
+            );
+
+            // 0 InventoryReceiptItem
+            $this->assertEquals(0, InventoryReceiptItem::where('receipt_id', $receipt->id)->count());
+
+            // 0 CashMovement
+            $this->assertEquals(0, CashMovement::where('type', 'pago_proveedor')->count());
+        } finally {
+            \Illuminate\Support\Facades\DB::statement(
+                'ALTER TABLE activity_logs MODIFY COLUMN description VARCHAR(255) NOT NULL'
+            );
+            \Illuminate\Support\Facades\DB::purge();
         }
     }
 
