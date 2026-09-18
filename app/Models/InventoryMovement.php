@@ -54,7 +54,7 @@ class InventoryMovement extends Model
     public function isExit(): bool        { return $this->tipo === 'salida'; }
     public function isAdjustment(): bool  { return $this->tipo === 'ajuste'; }
     public function isLoss(): bool        { return $this->tipo === 'pérdida'; }
-    public function isTransfer(): bool    { return $this->tipo === 'transferencia'; }
+    public function isTransfer(): bool    { return $this->tipo === 'transferencia' || $this->reference_type === 'transfer'; }
 
     public function isPositive(): bool
     {

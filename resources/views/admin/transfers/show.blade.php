@@ -24,7 +24,8 @@
         <div class="grid grid-cols-3 gap-6">
             <div>
                 <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Origen</p>
-                <p class="text-[15px] font-semibold text-gray-900">{{ $transfer->fromSede->nombre }}</p>
+                <p class="text-[15px] font-semibold text-gray-900">{{ $transfer->fromLocationName() }}</p>
+                <p class="text-[11px] text-gray-400 mt-0.5">{{ $transfer->from_sede_id ? 'Sede' : 'Almacén' }}</p>
             </div>
             <div class="text-center">
                 <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Dirección</p>
@@ -32,7 +33,8 @@
             </div>
             <div>
                 <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1">Destino</p>
-                <p class="text-[15px] font-semibold text-gray-900">{{ $transfer->toSede->nombre }}</p>
+                <p class="text-[15px] font-semibold text-gray-900">{{ $transfer->toLocationName() }}</p>
+                <p class="text-[11px] text-gray-400 mt-0.5">{{ $transfer->to_sede_id ? 'Sede' : 'Almacén' }}</p>
             </div>
         </div>
 
@@ -91,7 +93,7 @@
         {{-- Approve --}}
         <form method="POST" action="{{ route('transfers.approve', $transfer) }}"
               class="bg-white rounded-xl border border-emerald-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5 space-y-4"
-              onsubmit="return confirm('¿Aprobar esta transferencia? El stock se actualizará en ambas sedes.')">
+              onsubmit="return confirm('¿Aprobar esta transferencia? El stock se actualizará en las ubicaciones correspondientes.')">
             @csrf
             <div>
                 <label class="block text-[12px] font-medium text-gray-700 mb-1.5">Notas de aprobación (opcional)</label>
