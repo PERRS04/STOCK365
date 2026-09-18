@@ -44,8 +44,13 @@
                             @endif
                         </td>
                         <td class="py-3 px-4 text-center">
-                            <a href="{{ route('almacenes.edit', $almacen) }}"
-                               class="text-blue-600 hover:text-blue-800 font-medium">Editar</a>
+                            <div class="flex items-center justify-center gap-3">
+                                <a href="{{ route('almacenes.show', $almacen) }}"
+                                   class="text-stock-primary hover:text-blue-800 font-medium">Ver</a>
+                                <span class="text-gray-300">|</span>
+                                <a href="{{ route('almacenes.edit', $almacen) }}"
+                                   class="text-blue-600 hover:text-blue-800 font-medium">Editar</a>
+                            </div>
                         </td>
                     </tr>
                 @empty

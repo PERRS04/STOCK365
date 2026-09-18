@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
+use App\Models\Inventory;
+use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
 
 class AlmacenController extends Controller
@@ -36,6 +38,36 @@ class AlmacenController extends Controller
 
         return redirect()->route('almacenes.index')
             ->with('success', 'Almacén creado exitosamente.');
+    }
+
+    public function show(Almacen $almacen)
+    {
+        abort_unless(auth()->user()->isBoss(), 403);
+
+        $inventories = Inventory::query()
+            ->where('almacen_id', $almacen->id)
+            ->whereHas('product')
+            ->with('product')
+            ->orderBy('product_id')
+            ->paginate(20);
+
+        $totalProductos = Inventory::where('almacen_id', $almacen->id)->count();
+        $totalStock     = (int) Inventory::where('almacen_id', $almacen->id)->sum('cantidad_stock');
+
+        return view('admin.almacenes.show', compact('almacen', 'inventories', 'totalProductos', 'totalStock'));
+    }
+
+    public function movements(Almacen $almacen)
+    {
+        abort_unless(auth()->user()->isBoss(), 403);
+
+        $movements = InventoryMovement::query()
+            ->where('almacen_id', $almacen->id)
+            ->with('product', 'user', 'almacen')
+            ->latest('fecha_movimiento')
+            ->paginate(30);
+
+        return view('admin.almacenes.movements', compact('almacen', 'movements'));
     }
 
     public function edit(Almacen $almacen)
