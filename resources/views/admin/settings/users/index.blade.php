@@ -18,7 +18,7 @@
                     <th class="text-left py-3 px-4 font-semibold text-gray-700">Nombre</th>
                     <th class="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
                     <th class="text-center py-3 px-4 font-semibold text-gray-700">Rol</th>
-                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Sede</th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Ubicación</th>
                     <th class="text-center py-3 px-4 font-semibold text-gray-700">Estado</th>
                     <th class="text-center py-3 px-4 font-semibold text-gray-700">Acciones</th>
                 </tr>
@@ -37,7 +37,21 @@
                                 <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Operador</span>
                             @endif
                         </td>
-                        <td class="py-3 px-4 text-gray-600">{{ $user->sede?->nombre ?? '—' }}</td>
+                        <td class="py-3 px-4 text-gray-600">
+                            @if($user->sede_id)
+                                <span class="inline-flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                                    {{ $user->sede?->nombre ?? '—' }}
+                                </span>
+                            @elseif($user->almacen_id)
+                                <span class="inline-flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                                    {{ $user->almacen?->nombre ?? '—' }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 italic">Sin asignar</span>
+                            @endif
+                        </td>
                         <td class="py-3 px-4 text-center">
                             @if($user->active)
                                 <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Activo</span>

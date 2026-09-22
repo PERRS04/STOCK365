@@ -28,6 +28,7 @@ class User extends Authenticatable
         'password',
         'role',
         'sede_id',
+        'almacen_id',
         'active',
     ];
 
@@ -50,6 +51,35 @@ class User extends Authenticatable
     public function sede()
     {
         return $this->belongsTo(Sede::class);
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
+    }
+
+    /** Returns a human-readable workplace label for display purposes. */
+    public function workplaceName(): string
+    {
+        if ($this->sede_id !== null) {
+            return $this->sede?->nombre ?? 'Sede desconocida';
+        }
+        if ($this->almacen_id !== null) {
+            return $this->almacen?->nombre ?? 'Depósito desconocido';
+        }
+        return 'Sin asignar';
+    }
+
+    /** Returns the workplace type: 'sede', 'almacen', or null. */
+    public function workplaceType(): ?string
+    {
+        if ($this->sede_id !== null) {
+            return 'sede';
+        }
+        if ($this->almacen_id !== null) {
+            return 'almacen';
+        }
+        return null;
     }
 
     public function sales()

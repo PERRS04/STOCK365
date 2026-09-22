@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Almacen;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Product;
@@ -633,5 +634,49 @@ class SaleControllerTest extends TestCase
             'user_id' => $this->cashier->id,
             'estado'  => 'completada',
         ]);
+    }
+
+    // ── 33-36. Defensa en profundidad: usuarios sin sede bloqueados del POS ────
+
+    #[Test]
+    public function test_operador_almacen_no_puede_acceder_get_pos(): void
+    {
+        $almacen = Almacen::factory()->create();
+        $user = User::factory()->create(['sede_id' => null, 'almacen_id' => $almacen->id]);
+        $user->givePermissionTo('sales.create');
+
+        $this->actingAs($user)->get(route('pos.create'))->assertForbidden();
+    }
+
+    #[Test]
+    public function test_operador_almacen_no_puede_post_sales(): void
+    {
+        $almacen = Almacen::factory()->create();
+        $user = User::factory()->create(['sede_id' => null, 'almacen_id' => $almacen->id]);
+        $user->givePermissionTo('sales.create');
+
+        $this->actingAs($user)->postJson(route('sales.store'), [
+            'items'     => [$this->itemPayload(1, 1)],
+            'descuento' => 0,
+        ])->assertForbidden();
+    }
+
+    #[Test]
+    public function test_usuario_sin_sede_ni_almacen_no_puede_acceder_get_pos(): void
+    {
+        $user = User::factory()->create(['sede_id' => null, 'almacen_id' => null]);
+        $user->givePermissionTo('sales.create');
+
+        $this->actingAs($user)->get(route('pos.create'))->assertForbidden();
+    }
+
+    #[Test]
+    public function test_operador_con_sede_no_recibe_403_en_pos(): void
+    {
+        // The cashier has sede_id — our guard must not block them.
+        // (Middleware may redirect to open caja, but must NOT return 403.)
+        $response = $this->actingAs($this->cashier)->get(route('pos.create'));
+
+        $this->assertNotEquals(403, $response->getStatusCode());
     }
 }

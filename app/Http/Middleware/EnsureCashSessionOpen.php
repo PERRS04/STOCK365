@@ -17,6 +17,11 @@ class EnsureCashSessionOpen
             return $next($request);
         }
 
+        // Operators assigned exclusively to a warehouse have no cash session requirement.
+        if ($user->sede_id === null) {
+            return $next($request);
+        }
+
         $session = CashSession::activeForUser($user->id, $user->sede_id);
 
         if (!$session) {

@@ -21,6 +21,8 @@ class SaleController extends Controller
     public function create()
     {
         abort_unless(auth()->user()->can('sales.create'), 403);
+        // POS requires a sede context — warehouse operators and unassigned users cannot sell.
+        abort_if(auth()->user()->sede_id === null, 403);
 
         $user = Auth::user();
         $cashSession = $user->isOperator()
@@ -36,6 +38,8 @@ class SaleController extends Controller
     public function store(Request $request)
     {
         abort_unless(auth()->user()->can('sales.create'), 403);
+        // POS requires a sede context — warehouse operators and unassigned users cannot sell.
+        abort_if(auth()->user()->sede_id === null, 403);
 
         $validated = $request->validate([
             'items'                    => 'required|array',
