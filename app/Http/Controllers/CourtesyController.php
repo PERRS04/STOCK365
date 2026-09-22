@@ -65,9 +65,17 @@ class CourtesyController extends Controller
             'cortesia.registrada',
             "Cortesía registrada: {$courtesy->product->nombre} × {$courtesy->quantity} — {$courtesy->tipo}" .
             (auth()->user()->sede ? ' · ' . auth()->user()->sede->nombre : ''),
-            $courtesy
+            $courtesy,
+            [],
+            [
+                'producto_id' => $courtesy->product_id,
+                'cantidad'    => $courtesy->quantity,
+                'tipo'        => $courtesy->tipo,
+                'motivo'      => $courtesy->motivo,
+                'estado'      => $courtesy->status,
+            ],
+            $courtesy->sede_id
         );
-
         return redirect()->route('dashboard')
             ->with('success', 'Cortesía registrada. Pendiente de aprobación por supervisión.');
     }
@@ -157,7 +165,14 @@ class CourtesyController extends Controller
                     'cortesia.aprobada',
                     "Cortesía aprobada: {$courtesy->product->nombre} × {$courtesy->quantity} — {$courtesy->tipo}" .
                     ($courtesy->sede ? ' · ' . $courtesy->sede->nombre : ''),
-                    $courtesy
+                    $courtesy,
+                    [
+                        'estado' => 'pendiente',
+                    ],
+                    [
+                        'estado' => 'aprobado',
+                    ],
+                    $courtesy->sede_id
                 );
             });
         } catch (\Exception $e) {
@@ -193,9 +208,16 @@ class CourtesyController extends Controller
             'cortesia.rechazada',
             "Cortesía rechazada: {$courtesy->product->nombre} × {$courtesy->quantity}" .
             ($courtesy->sede ? ' · ' . $courtesy->sede->nombre : ''),
-            $courtesy
+            $courtesy,
+            [
+                'estado' => 'pendiente',
+            ],
+            [
+                'estado' => 'rechazado',
+                'motivo_rechazo' => $validated['rejection_reason'],
+            ],
+            $courtesy->sede_id
         );
-
         return redirect()->route('courtesies.index')
             ->with('warning', 'Cortesía rechazada.');
     }

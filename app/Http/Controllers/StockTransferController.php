@@ -133,10 +133,29 @@ class StockTransferController extends Controller
                 ]);
             }
 
+            $auditNewValues = [
+                'estado' => 'pendiente',
+                'origen_sede_id' => $transfer->from_sede_id,
+                'origen_almacen_id' => $transfer->from_almacen_id,
+                'destino_sede_id' => $transfer->to_sede_id,
+                'destino_almacen_id' => $transfer->to_almacen_id,
+            ];
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::find($item['product_id']);
+                $label = ($product?->nombre ?? "Producto #{$item['product_id']}")
+                    . " (#{$item['product_id']})";
+
+                $auditNewValues[$label] = (int) $item['cantidad'];
+            }
+
             ActivityLogger::log(
                 'transferencia.creada',
                 "Transferencia #{$transfer->id} creada: {$transfer->fromLocationName()} → {$transfer->toLocationName()}",
-                $transfer
+                $transfer,
+                [],
+                $auditNewValues,
+                $transfer->from_sede_id ?? $transfer->to_sede_id
             );
         });
 
@@ -215,7 +234,14 @@ class StockTransferController extends Controller
                 ActivityLogger::log(
                     'transferencia.aprobada',
                     "Transferencia #{$locked->id} aprobada: {$fromLabel} → {$toLabel}",
-                    $locked
+                    $locked,
+                    [
+                        'estado' => 'pendiente',
+                    ],
+                    [
+                        'estado' => 'aprobado',
+                    ],
+                    $locked->from_sede_id ?? $locked->to_sede_id
                 );
             });
         } catch (\RuntimeException $e) {
@@ -253,7 +279,15 @@ class StockTransferController extends Controller
                 ActivityLogger::log(
                     'transferencia.rechazada',
                     "Transferencia #{$locked->id} rechazada: {$locked->fromLocationName()} → {$locked->toLocationName()}",
-                    $locked
+                    $locked,
+                    [
+                        'estado' => 'pendiente',
+                    ],
+                    [
+                        'estado' => 'rechazado',
+                        'motivo_rechazo' => $validated['notas_aprobacion'],
+                    ],
+                    $locked->from_sede_id ?? $locked->to_sede_id
                 );
             });
         } catch (\RuntimeException $e) {

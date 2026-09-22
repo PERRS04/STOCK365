@@ -63,9 +63,16 @@ class CashMovementController extends Controller
             'Movimiento de caja registrado: ' . CashMovement::typeLabel($movement->type) .
             ' $' . number_format($movement->amount, 2) . ' — ' . $movement->motivo .
             (auth()->user()->sede ? ' · ' . auth()->user()->sede->nombre : ''),
-            $movement
+            $movement,
+            [],
+            [
+                'tipo' => $movement->type,
+                'monto' => (float) $movement->amount,
+                'motivo' => $movement->motivo,
+                'estado' => $movement->status,
+            ],
+            $movement->sede_id
         );
-
         return redirect()->route('dashboard')
             ->with('success', 'Movimiento registrado. Pendiente de aprobación por supervisión.');
     }
@@ -142,9 +149,15 @@ class CashMovementController extends Controller
             'Movimiento aprobado: ' . CashMovement::typeLabel($movement->type) .
             ' $' . number_format($movement->amount, 2) . ' — ' . $movement->motivo .
             ($movement->sede ? ' · ' . $movement->sede->nombre : ''),
-            $movement
+            $movement,
+            [
+                'estado' => 'pendiente',
+            ],
+            [
+                'estado' => 'aprobado',
+            ],
+            $movement->sede_id
         );
-
         return redirect()->route('cash-movements.index')
             ->with('success', 'Movimiento aprobado correctamente.');
     }
@@ -179,9 +192,16 @@ class CashMovementController extends Controller
             'Movimiento rechazado: ' . CashMovement::typeLabel($movement->type) .
             ' $' . number_format($movement->amount, 2) .
             ($movement->sede ? ' · ' . $movement->sede->nombre : ''),
-            $movement
+            $movement,
+            [
+                'estado' => 'pendiente',
+            ],
+            [
+                'estado' => 'rechazado',
+                'motivo_rechazo' => $validated['rejection_reason'],
+            ],
+            $movement->sede_id
         );
-
         return redirect()->route('cash-movements.index')
             ->with('warning', 'Movimiento rechazado.');
     }

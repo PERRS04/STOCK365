@@ -2099,4 +2099,106 @@ class InventoryReceiptControllerTest extends TestCase
             );
         }
     }
+    // ── Audit log ─────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function test_aprobacion_guarda_estado_sede_y_cambio_real_de_stock_en_auditoria(): void
+    {
+        $product = $this->makeProduct();
+        $this->makeInventory($product, 20);
+
+        $this->postApprove(
+            $this->receipt,
+            $this->defaultPayload($product, 10)
+        );
+
+        $log = \App\Models\ActivityLog::where('action', 'recepcion.aprobada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $label = $product->nombre . " (#{$product->id})";
+
+        $this->assertSame($this->receipt->id, $log->model_id);
+        $this->assertSame($this->sede->id, $log->sede_id);
+        $this->assertSame('pendiente', $log->old_values['estado'] ?? null);
+        $this->assertSame('aprobado', $log->new_values['estado'] ?? null);
+        $this->assertSame(20, $log->old_values[$label] ?? null);
+        $this->assertSame(30, $log->new_values[$label] ?? null);
+    }
+
+    #[Test]
+    public function test_aprobacion_multi_item_guarda_cambio_de_cada_producto_en_auditoria(): void
+    {
+        $productA = $this->makeProduct();
+        $productB = $this->makeProduct();
+
+        $this->makeInventory($productA, 5);
+        $this->makeInventory($productB, 8);
+
+        $this->postApprove($this->receipt, [
+            'items' => [
+                [
+                    'product_id' => $productA->id,
+                    'cantidad' => 4,
+                    'costo_unitario' => 10.00,
+                ],
+                [
+                    'product_id' => $productB->id,
+                    'cantidad' => 3,
+                    'costo_unitario' => 20.00,
+                ],
+            ],
+        ]);
+
+        $log = \App\Models\ActivityLog::where('action', 'recepcion.aprobada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $labelA = $productA->nombre . " (#{$productA->id})";
+        $labelB = $productB->nombre . " (#{$productB->id})";
+
+        $this->assertSame(5, $log->old_values[$labelA] ?? null);
+        $this->assertSame(9, $log->new_values[$labelA] ?? null);
+        $this->assertSame(8, $log->old_values[$labelB] ?? null);
+        $this->assertSame(11, $log->new_values[$labelB] ?? null);
+    }
+
+    #[Test]
+    public function test_registro_guarda_datos_utiles_y_sede_en_auditoria(): void
+    {
+        Permission::firstOrCreate([
+            'name' => 'receipts.create',
+            'guard_name' => 'web',
+        ]);
+
+        $operator = User::factory()->create([
+            'sede_id' => $this->sede->id,
+        ]);
+        $operator->givePermissionTo('receipts.create');
+
+        $provider = Provider::create([
+            'nombre' => 'Proveedor Auditoria',
+            'activo' => true,
+        ]);
+
+        $response = $this->actingAs($operator)->post(
+            route('inventory-receipts.store'),
+            [
+                'provider_id' => $provider->id,
+                'monto_pagado' => 150.50,
+            ]
+        );
+
+        $response->assertRedirect(route('dashboard'));
+
+        $log = \App\Models\ActivityLog::where('action', 'recepcion.registrada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($this->sede->id, $log->sede_id);
+        $this->assertSame('Proveedor Auditoria', $log->new_values['proveedor'] ?? null);
+        $this->assertEquals(150.50, $log->new_values['monto_pagado'] ?? null);
+        $this->assertSame('pendiente', $log->new_values['estado'] ?? null);
+    }
+
 }

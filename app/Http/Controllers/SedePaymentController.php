@@ -93,7 +93,17 @@ class SedePaymentController extends Controller
             ActivityLogger::log(
                 'sede_payment.confirmed',
                 "Pago de apoyo confirmado: {$allocation->receipt->supplier_name} · \${$allocation->amount} · Recepción #{$allocation->inventory_receipt_id}",
-                $allocation
+                $allocation,
+                [
+                    'estado' => 'pending',
+                ],
+                [
+                    'estado' => 'confirmed',
+                    'monto' => (float) $allocation->amount,
+                    'recepcion_id' => $allocation->inventory_receipt_id,
+                    'movimiento_caja_id' => $movement->id,
+                ],
+                $allocation->source_sede_id
             );
         });
 

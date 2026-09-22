@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\CourtesyTransaction;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
@@ -333,5 +334,95 @@ class CourtesyControllerTest extends TestCase
             'id'     => $courtesy->id,
             'status' => 'pendiente',
         ]);
+    }
+
+    // ── Audit log ─────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function test_aprobacion_guarda_cambio_de_estado_y_sede_en_auditoria(): void
+    {
+        $this->makeInventory(20);
+        $courtesy = $this->makePendingCourtesy(5);
+
+        $this->postApprove($courtesy);
+
+        $log = ActivityLog::where('action', 'cortesia.aprobada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($courtesy->id, $log->model_id);
+        $this->assertSame($this->sede->id, $log->sede_id);
+        $this->assertSame('pendiente', $log->old_values['estado'] ?? null);
+        $this->assertSame('aprobado', $log->new_values['estado'] ?? null);
+    }
+
+    #[Test]
+    public function test_rechazo_guarda_estado_motivo_y_sede_en_auditoria(): void
+    {
+        $courtesy = $this->makePendingCourtesy(5);
+
+        $response = $this->actingAs($this->approver)
+            ->patch(route('courtesies.reject', $courtesy), [
+                'rejection_reason' => 'Cortesia no autorizada',
+            ]);
+
+        $response->assertRedirect(route('courtesies.index'));
+
+        $log = ActivityLog::where('action', 'cortesia.rechazada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($courtesy->id, $log->model_id);
+        $this->assertSame($this->sede->id, $log->sede_id);
+        $this->assertSame('pendiente', $log->old_values['estado'] ?? null);
+        $this->assertSame('rechazado', $log->new_values['estado'] ?? null);
+        $this->assertSame(
+            'Cortesia no autorizada',
+            $log->new_values['motivo_rechazo'] ?? null
+        );
+    }
+
+    #[Test]
+    public function test_registro_guarda_datos_utiles_en_auditoria(): void
+    {
+        Permission::firstOrCreate([
+            'name' => 'courtesies.create',
+            'guard_name' => 'web',
+        ]);
+
+        $operator = User::factory()->create([
+            'sede_id' => $this->sede->id,
+        ]);
+        $operator->givePermissionTo('courtesies.create');
+
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $response = $this->actingAs($operator)
+            ->post(route('courtesies.store'), [
+                'product_id' => $this->product->id,
+                'quantity' => 3,
+                'tipo' => 'promocion',
+                'motivo' => 'Cliente frecuente',
+                'cliente_nombre' => 'Cliente Test',
+                'observaciones' => 'Prueba auditoria',
+                'attachment' => \Illuminate\Http\UploadedFile::fake()->image('cortesia.jpg'),
+            ]);
+
+        $response->assertRedirect(route('dashboard'));
+
+        $courtesy = CourtesyTransaction::latest('id')->firstOrFail();
+
+        $log = ActivityLog::where('action', 'cortesia.registrada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($courtesy->id, $log->model_id);
+        $this->assertSame($this->sede->id, $log->sede_id);
+        $this->assertEmpty($log->old_values ?? []);
+        $this->assertSame($this->product->id, $log->new_values['producto_id'] ?? null);
+        $this->assertSame(3, $log->new_values['cantidad'] ?? null);
+        $this->assertSame('promocion', $log->new_values['tipo'] ?? null);
+        $this->assertSame('Cliente frecuente', $log->new_values['motivo'] ?? null);
+        $this->assertSame('pendiente', $log->new_values['estado'] ?? null);
     }
 }

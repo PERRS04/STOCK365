@@ -118,7 +118,14 @@ class InventoryReceiptController extends Controller
         ActivityLogger::log(
             'recepcion.registrada',
             "Recepción registrada: {$provider->nombre} · \${$validated['monto_pagado']}" . (auth()->user()->sede ? " · " . auth()->user()->sede->nombre : "") . $allocMsg,
-            $receipt
+            $receipt,
+            [],
+            [
+                'proveedor' => $provider->nombre,
+                'monto_pagado' => (float) $receipt->monto_pagado,
+                'estado' => $receipt->estado,
+            ],
+            $receipt->sede_id
         );
 
         return redirect()->route('dashboard')
@@ -267,6 +274,13 @@ class InventoryReceiptController extends Controller
                 // Sort ASC by product_id for deterministic lock acquisition (deadlock prevention)
                 $items = collect($validated['items'])->sortBy('product_id')->values();
 
+                $auditOldValues = [
+                    'estado' => 'pendiente',
+                ];
+                $auditNewValues = [
+                    'estado' => 'aprobado',
+                ];
+
                 foreach ($items as $item) {
                     InventoryReceiptItem::create([
                         'receipt_id'     => $lockedReceipt->id,
@@ -289,6 +303,10 @@ class InventoryReceiptController extends Controller
 
                     $product  = Product::find($item['product_id']);
                     $oldStock = $inventoryResult->cantidad_stock - $item['cantidad'];
+
+                    $auditLabel = $product->nombre . " (#{$product->id})";
+                    $auditOldValues[$auditLabel] = (int) $oldStock;
+                    $auditNewValues[$auditLabel] = (int) $inventoryResult->cantidad_stock;
 
                     if ($oldStock + $item['cantidad'] > 0) {
                         $newAvgCost = (($oldStock * ($product->precio_compra ?? 0)) + ($item['cantidad'] * $item['costo_unitario']))
@@ -366,7 +384,10 @@ class InventoryReceiptController extends Controller
                 ActivityLogger::log(
                     'recepcion.aprobada',
                     "Recepción aprobada: {$lockedReceipt->supplier_name} · \${$lockedReceipt->monto_pagado}" . ($lockedReceipt->sede ? " · " . $lockedReceipt->sede->nombre : ""),
-                    $lockedReceipt
+                    $lockedReceipt,
+                    $auditOldValues,
+                    $auditNewValues,
+                    $lockedReceipt->sede_id
                 );
             });
         } catch (\RuntimeException $e) {

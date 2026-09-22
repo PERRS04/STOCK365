@@ -61,7 +61,22 @@ class SupplierController extends Controller
             'created_by' => auth()->id(),
         ]));
 
-        ActivityLogger::log('proveedor.creado', "Proveedor creado: {$supplier->nombre}", $supplier);
+        ActivityLogger::log(
+            'proveedor.creado',
+            "Proveedor creado: {$supplier->nombre}",
+            $supplier,
+            [],
+            [
+                'nombre' => $supplier->nombre,
+                'ruc_nit' => $supplier->ruc_nit,
+                'email' => $supplier->email,
+                'telefono' => $supplier->telefono,
+                'contacto_principal' => $supplier->contacto_principal,
+                'direccion' => $supplier->direccion,
+                'observaciones' => $supplier->observaciones,
+                'activo' => $supplier->activo,
+            ]
+        );
 
         return redirect()->route('suppliers.show', $supplier)->with('success', 'Proveedor creado correctamente.');
     }
@@ -107,8 +122,27 @@ class SupplierController extends Controller
             'observaciones'      => 'nullable|string|max:1000',
         ]);
 
+        $oldValues = [];
+        $newValues = [];
+
+        foreach ($validated as $field => $newValue) {
+            $oldValue = $supplier->getAttribute($field);
+
+            if ($oldValue != $newValue) {
+                $oldValues[$field] = $oldValue;
+                $newValues[$field] = $newValue;
+            }
+        }
+
         $supplier->update($validated);
-        ActivityLogger::log('proveedor.editado', "Proveedor editado: {$supplier->nombre}", $supplier);
+
+        ActivityLogger::log(
+            'proveedor.editado',
+            "Proveedor editado: {$supplier->nombre}",
+            $supplier,
+            $oldValues,
+            $newValues
+        );
 
         return redirect()->route('suppliers.show', $supplier)->with('success', 'Proveedor actualizado.');
     }
@@ -117,8 +151,21 @@ class SupplierController extends Controller
     {
         abort_unless(auth()->user()->isBoss(), 403);
 
+        $wasActive = $supplier->activo;
+
         $supplier->update(['activo' => false]);
-        ActivityLogger::log('proveedor.desactivado', "Proveedor desactivado: {$supplier->nombre}", $supplier);
+
+        ActivityLogger::log(
+            'proveedor.desactivado',
+            "Proveedor desactivado: {$supplier->nombre}",
+            $supplier,
+            [
+                'activo' => $wasActive,
+            ],
+            [
+                'activo' => false,
+            ]
+        );
 
         return redirect()->route('suppliers.index')->with('warning', 'Proveedor desactivado.');
     }

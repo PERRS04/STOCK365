@@ -1002,4 +1002,69 @@ class StockTransferControllerTest extends TestCase
         $response->assertSee($this->almacenA->nombre);
         $response->assertSee($this->almacenB->nombre);
     }
+
+    #[Test]
+    public function test_creacion_guarda_datos_utiles_en_auditoria(): void
+    {
+        $this->makeInventory($this->productA, $this->sedeA, null, 20);
+
+        $this->store($this->sedeToSedeParams([
+            ['product_id' => $this->productA->id, 'cantidad' => 5],
+        ]));
+
+        $transfer = StockTransfer::latest('id')->firstOrFail();
+
+        $log = \App\Models\ActivityLog::where('action', 'transferencia.creada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $label = $this->productA->nombre . " (#{$this->productA->id})";
+
+        $this->assertSame($transfer->id, $log->model_id);
+        $this->assertSame('pendiente', $log->new_values['estado'] ?? null);
+        $this->assertSame($this->sedeA->id, $log->new_values['origen_sede_id'] ?? null);
+        $this->assertSame($this->sedeB->id, $log->new_values['destino_sede_id'] ?? null);
+        $this->assertSame(5, $log->new_values[$label] ?? null);
+    }
+
+    #[Test]
+    public function test_aprobacion_guarda_cambio_de_estado_en_auditoria(): void
+    {
+        $this->makeInventory($this->productA, $this->sedeA, null, 20);
+
+        $transfer = $this->makeTransfer();
+        $this->addItem($transfer, $this->productA, 5);
+
+        $this->approve($transfer);
+
+        $log = \App\Models\ActivityLog::where('action', 'transferencia.aprobada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($transfer->id, $log->model_id);
+        $this->assertSame('pendiente', $log->old_values['estado'] ?? null);
+        $this->assertSame('aprobado', $log->new_values['estado'] ?? null);
+    }
+
+    #[Test]
+    public function test_rechazo_guarda_estado_y_motivo_en_auditoria(): void
+    {
+        $transfer = $this->makeTransfer();
+
+        $this->reject($transfer, [
+            'notas_aprobacion' => 'Stock reservado para otra sede',
+        ]);
+
+        $log = \App\Models\ActivityLog::where('action', 'transferencia.rechazada')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($transfer->id, $log->model_id);
+        $this->assertSame('pendiente', $log->old_values['estado'] ?? null);
+        $this->assertSame('rechazado', $log->new_values['estado'] ?? null);
+        $this->assertSame(
+            'Stock reservado para otra sede',
+            $log->new_values['motivo_rechazo'] ?? null
+        );
+    }
 }

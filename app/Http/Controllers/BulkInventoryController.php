@@ -29,7 +29,11 @@ class BulkInventoryController extends Controller
             : collect();
 
         return view('admin.inventory.bulk-load', compact(
-            'sedes', 'products', 'sede', 'sedeId', 'currentStock'
+            'sedes',
+            'products',
+            'sede',
+            'sedeId',
+            'currentStock'
         ));
     }
 
@@ -44,24 +48,49 @@ class BulkInventoryController extends Controller
             'motivo'       => 'nullable|string|max:255',
         ]);
 
-        $sede    = Sede::findOrFail($validated['sede_id']);
-        $motivo  = ($validated['motivo'] ?? null) ?: 'Carga masiva de inventario inicial';
-        $changed = 0;
+        $sede      = Sede::findOrFail($validated['sede_id']);
+        $motivo    = ($validated['motivo'] ?? null) ?: 'Carga masiva de inventario inicial';
+        $changed   = 0;
+        $oldValues = [];
+        $newValues = [];
 
         // Sort ASC by product_id for deterministic lock acquisition (deadlock prevention)
         $quantities = $validated['quantities'];
         ksort($quantities);
 
-        DB::transaction(function () use ($quantities, $sede, $motivo, &$changed) {
-            foreach ($quantities as $productId => $newQty) {
-                if ($newQty === null || $newQty === '') continue;
+        // Load product names once for a human-readable audit trail
+        $productNames = Product::whereIn('id', array_keys($quantities))
+            ->pluck('nombre', 'id');
 
-                $newQty     = (int) $newQty;
+        DB::transaction(function () use (
+            $quantities,
+            $sede,
+            $motivo,
+            $productNames,
+            &$changed,
+            &$oldValues,
+            &$newValues
+        ) {
+            foreach ($quantities as $productId => $newQty) {
+                if ($newQty === null || $newQty === '') {
+                    continue;
+                }
+
+                $newQty = (int) $newQty;
+
                 $currentQty = Inventory::where('product_id', $productId)
                     ->where('sede_id', $sede->id)
                     ->value('cantidad_stock') ?? 0;
 
-                if ($currentQty === $newQty) continue;
+                if ($currentQty === $newQty) {
+                    continue;
+                }
+
+                $label = ($productNames[$productId] ?? "Producto #{$productId}")
+                    . " (#{$productId})";
+
+                $oldValues[$label] = $currentQty;
+                $newValues[$label] = $newQty;
 
                 $this->stockService->setStockAbsolute(
                     productId:      (int) $productId,
@@ -80,10 +109,17 @@ class BulkInventoryController extends Controller
         ActivityLogger::log(
             'inventory.bulk_load',
             "Carga masiva: {$sede->nombre} — {$changed} productos actualizados. Motivo: {$motivo}",
+            null,
+            $oldValues,
+            $newValues,
+            $sede->id,
         );
 
         return redirect()
             ->route('inventory.bulk-load', ['sede_id' => $validated['sede_id']])
-            ->with('success', "Inventario actualizado: {$changed} productos modificados en {$sede->nombre}.");
+            ->with(
+                'success',
+                "Inventario actualizado: {$changed} productos modificados en {$sede->nombre}."
+            );
     }
 }

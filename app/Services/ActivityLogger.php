@@ -14,25 +14,27 @@ class ActivityLogger
         string $description,
         ?Model $model = null,
         array $oldValues = [],
-        array $newValues = []
+        array $newValues = [],
+        ?int $sedeId = null
     ): void {
         $user = Auth::user();
+
         if (!$user) {
             return;
         }
 
         ActivityLog::create([
-            'user_id'    => $user->id,
-            'user_name'  => $user->name,
-            'user_role'  => $user->getRoleNames()->first() ?? $user->role ?? 'unknown',
-            'sede_id'    => $user->sede_id,
-            'action'     => $action,
-            'model_type' => $model ? class_basename($model) : null,
-            'model_id'   => $model?->getKey(),
-            'old_values' => $oldValues ?: null,
-            'new_values' => $newValues ?: null,
+            'user_id'     => $user->id,
+            'user_name'   => $user->name,
+            'user_role'   => $user->getRoleNames()->first() ?? $user->role ?? 'unknown',
+            'sede_id'     => $sedeId ?? $user->sede_id,
+            'action'      => $action,
+            'model_type'  => $model ? class_basename($model) : null,
+            'model_id'    => $model?->getKey(),
+            'old_values'  => $oldValues ?: null,
+            'new_values'  => $newValues ?: null,
             'description' => $description,
-            'ip_address' => Request::ip(),
+            'ip_address'  => Request::ip(),
         ]);
     }
 }

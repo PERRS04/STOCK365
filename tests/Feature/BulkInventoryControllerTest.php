@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Product;
@@ -536,5 +537,60 @@ class BulkInventoryControllerTest extends TestCase
             'product_id' => $product->id,
             'tipo'       => 'salida',
         ]);
+    }
+
+    #[Test]
+    public function test_carga_masiva_guarda_antes_y_despues_en_auditoria(): void
+    {
+        $product = $this->makeProduct();
+        $this->makeInventory($product, $this->sede, 10);
+
+        $response = $this->postSave([
+            'sede_id'    => $this->sede->id,
+            'quantities' => [$product->id => 20],
+            'motivo'     => 'Prueba auditoria',
+        ]);
+
+        $response->assertRedirect();
+
+        $log = ActivityLog::where('action', 'inventory.bulk_load')
+            ->latest('id')
+            ->firstOrFail();
+
+        $label = "{$product->nombre} (#{$product->id})";
+
+        $this->assertSame(10, $log->old_values[$label]);
+        $this->assertSame(20, $log->new_values[$label]);
+        $this->assertStringContainsString('1 productos actualizados', $log->description);
+        $this->assertStringContainsString('Prueba auditoria', $log->description);
+    }
+
+    #[Test]
+    public function test_auditoria_registra_sede_afectada_no_sede_del_boss(): void
+    {
+        $sedeBoss = Sede::factory()->create();
+        $sedeAfectada = Sede::factory()->create();
+
+        $this->boss->update([
+            'sede_id' => $sedeBoss->id,
+        ]);
+
+        $product = $this->makeProduct();
+        $this->makeInventory($product, $sedeAfectada, 10);
+
+        $response = $this->postSave([
+            'sede_id'    => $sedeAfectada->id,
+            'quantities' => [$product->id => 20],
+            'motivo'     => 'Prueba sede auditoria',
+        ]);
+
+        $response->assertRedirect();
+
+        $log = ActivityLog::where('action', 'inventory.bulk_load')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame($sedeAfectada->id, $log->sede_id);
+        $this->assertNotSame($sedeBoss->id, $log->sede_id);
     }
 }
