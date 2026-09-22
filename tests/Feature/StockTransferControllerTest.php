@@ -13,6 +13,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class StockTransferControllerTest extends TestCase
@@ -34,11 +35,12 @@ class StockTransferControllerTest extends TestCase
 
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
 
-        Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'inventory.view',  'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'products.create', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'transfers.approve', 'guard_name' => 'web']);
 
         $this->boss = User::factory()->create();
-        $this->boss->givePermissionTo(['inventory.view', 'products.create']);
+        $this->boss->givePermissionTo(['inventory.view', 'transfers.approve']);
 
         $this->viewer = User::factory()->create();
         $this->viewer->givePermissionTo('inventory.view');
@@ -900,10 +902,20 @@ class StockTransferControllerTest extends TestCase
     // ── 17. approve() — permisos ──────────────────────────────────────────────
 
     #[Test]
-    public function test_approve_403_sin_permiso_products_create(): void
+    public function test_approve_403_sin_permiso_transfers_approve(): void
     {
         $transfer = $this->makeTransfer();
         $response = $this->actingAs($this->viewer)->post(route('transfers.approve', $transfer));
+        $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function test_approve_403_con_products_create_pero_sin_transfers_approve(): void
+    {
+        $userWithProductsCreate = User::factory()->create();
+        $userWithProductsCreate->givePermissionTo(['inventory.view', 'products.create']);
+        $transfer = $this->makeTransfer();
+        $response = $this->actingAs($userWithProductsCreate)->post(route('transfers.approve', $transfer));
         $response->assertStatus(403);
     }
 
@@ -973,7 +985,7 @@ class StockTransferControllerTest extends TestCase
     }
 
     #[Test]
-    public function test_reject_403_sin_permiso_products_create(): void
+    public function test_reject_403_sin_permiso_transfers_approve(): void
     {
         $transfer = $this->makeTransfer();
         $response = $this->actingAs($this->viewer)->patch(
@@ -1066,5 +1078,54 @@ class StockTransferControllerTest extends TestCase
             'Stock reservado para otra sede',
             $log->new_values['motivo_rechazo'] ?? null
         );
+    }
+
+    // ── C1: view guard — transfers.approve vs products.create ────────────────
+
+    #[Test]
+    public function test_supervisor_con_transfers_approve_ve_botones_aprobar_rechazar(): void
+    {
+        Role::firstOrCreate(['name' => 'supervisor', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'transfers.approve', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
+
+        $supervisor = User::factory()->create(['role' => 'supervisor']);
+        $supervisor->assignRole('supervisor');
+        $supervisor->givePermissionTo(['transfers.approve', 'inventory.view']);
+
+        $transfer = $this->makeTransfer(['estado' => 'pendiente', 'created_by' => $this->boss->id]);
+
+        $response = $this->actingAs($supervisor)->get(route('transfers.show', $transfer));
+        $response->assertStatus(200);
+        $response->assertSee('Aprobar Transferencia');
+    }
+
+    #[Test]
+    public function test_usuario_con_products_create_pero_sin_transfers_approve_no_ve_botones(): void
+    {
+        Role::firstOrCreate(['name' => 'supervisor', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'products.create', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
+
+        $user = User::factory()->create(['role' => 'supervisor']);
+        $user->assignRole('supervisor');
+        $user->givePermissionTo(['products.create', 'inventory.view']);
+        // NOT transfers.approve
+
+        $transfer = $this->makeTransfer(['estado' => 'pendiente', 'created_by' => $this->boss->id]);
+
+        $response = $this->actingAs($user)->get(route('transfers.show', $transfer));
+        $response->assertStatus(200);
+        $response->assertDontSee('Aprobar Transferencia');
+    }
+
+    #[Test]
+    public function test_boss_ve_botones_aprobar_rechazar(): void
+    {
+        $transfer = $this->makeTransfer(['estado' => 'pendiente', 'created_by' => $this->boss->id]);
+
+        $response = $this->actingAs($this->boss)->get(route('transfers.show', $transfer));
+        $response->assertStatus(200);
+        $response->assertSee('Aprobar Transferencia');
     }
 }

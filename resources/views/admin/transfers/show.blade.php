@@ -87,7 +87,7 @@
     </div>
 
     {{-- Approval form (only if pending and has permission) --}}
-    @if($transfer->isPending() && auth()->user()->can('products.create'))
+    @if($transfer->isPending() && auth()->user()->can('transfers.approve'))
     <div x-data="{ showReject: false }" class="space-y-3">
 
         {{-- Approve --}}

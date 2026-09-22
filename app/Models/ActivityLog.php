@@ -11,6 +11,7 @@ class ActivityLog extends Model
         'user_name',
         'user_role',
         'sede_id',
+        'almacen_id',
         'action',
         'model_type',
         'model_id',
@@ -33,5 +34,10 @@ class ActivityLog extends Model
     public function sede()
     {
         return $this->belongsTo(Sede::class);
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
     }
 }

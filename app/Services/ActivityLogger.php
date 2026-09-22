@@ -15,7 +15,8 @@ class ActivityLogger
         ?Model $model = null,
         array $oldValues = [],
         array $newValues = [],
-        ?int $sedeId = null
+        ?int $sedeId = null,
+        ?int $almacenId = null
     ): void {
         $user = Auth::user();
 
@@ -28,6 +29,7 @@ class ActivityLogger
             'user_name'   => $user->name,
             'user_role'   => $user->getRoleNames()->first() ?? $user->role ?? 'unknown',
             'sede_id'     => $sedeId ?? $user->sede_id,
+            'almacen_id'  => $almacenId,
             'action'      => $action,
             'model_type'  => $model ? class_basename($model) : null,
             'model_id'    => $model?->getKey(),

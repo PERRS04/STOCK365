@@ -2,6 +2,11 @@
 @section('title', 'Carga Masiva de Stock')
 @section('content')
 
+@php
+    $activeLocation = $locType === 'almacen' ? $almacen : $sede;
+    $locationLabel  = $activeLocation?->nombre ?? null;
+@endphp
+
 <div class="space-y-5" x-data="bulkLoader()">
 
     {{-- Header --}}
@@ -11,10 +16,10 @@
             <span class="text-gray-200">/</span>
             <h1 class="text-[18px] font-semibold text-gray-900">Carga Masiva de Stock</h1>
         </div>
-        @if($sede)
+        @if($locationLabel)
         <div class="flex items-center gap-2">
-            <span class="text-[12px] text-gray-500">Sede:</span>
-            <span class="text-[13px] font-semibold text-gray-900">{{ $sede->nombre }}</span>
+            <span class="text-[12px] text-gray-500">{{ $locType === 'almacen' ? 'Depósito' : 'Sede' }}:</span>
+            <span class="text-[13px] font-semibold text-gray-900">{{ $locationLabel }}</span>
         </div>
         @endif
     </div>
@@ -28,27 +33,64 @@
     </div>
     @endif
 
-    {{-- Sede selector --}}
-    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-4">
-        <form method="GET" class="flex items-end gap-4">
-            <div class="flex-1 max-w-xs">
-                <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Seleccionar Sede</label>
-                <select name="sede_id" onchange="this.form.submit()"
-                        class="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
-                    @foreach($sedes as $s)
-                    <option value="{{ $s->id }}" {{ $sedeId == $s->id ? 'selected' : '' }}>{{ $s->nombre }}</option>
-                    @endforeach
-                </select>
+    {{-- Location selector --}}
+    <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] px-5 py-4"
+         x-data="{ locType: '{{ $locType }}' }">
+        <form method="GET" id="selectorForm" class="space-y-3">
+
+            {{-- Type toggle --}}
+            <div class="flex gap-1.5">
+                <button type="button"
+                        @click="locType = 'sede'; $nextTick(() => document.getElementById('selectorForm').submit())"
+                        :class="locType === 'sede' ? 'bg-stock-primary text-white border-stock-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'"
+                        class="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition">
+                    Sede
+                </button>
+                @if($almacenes->isNotEmpty())
+                <button type="button"
+                        @click="locType = 'almacen'; $nextTick(() => document.getElementById('selectorForm').submit())"
+                        :class="locType === 'almacen' ? 'bg-stock-primary text-white border-stock-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'"
+                        class="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition">
+                    Depósito
+                </button>
+                @endif
+                <input type="hidden" name="loc_type" :value="locType">
             </div>
-            <p class="text-[12px] text-gray-400 pb-2">Ingresa las cantidades para cada producto. Solo se actualizan los que cambian.</p>
+
+            <div class="flex items-end gap-4">
+                <div class="flex-1 max-w-xs" x-show="locType === 'sede'">
+                    <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Sede</label>
+                    <select name="sede_id" onchange="this.form.submit()"
+                            class="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                        @foreach($sedes as $s)
+                        <option value="{{ $s->id }}" {{ $sedeId == $s->id ? 'selected' : '' }}>{{ $s->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex-1 max-w-xs" x-show="locType === 'almacen'">
+                    <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 mb-1.5">Depósito</label>
+                    <select name="almacen_id" onchange="this.form.submit()"
+                            class="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stock-primary/20 focus:border-stock-primary">
+                        @foreach($almacenes as $a)
+                        <option value="{{ $a->id }}" {{ $almacenId == $a->id ? 'selected' : '' }}>{{ $a->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <p class="text-[12px] text-gray-400 pb-2">Solo se actualizan los productos que cambian.</p>
+            </div>
         </form>
     </div>
 
-    @if($sede)
+    @if($activeLocation)
     {{-- Bulk form --}}
     <form method="POST" action="{{ route('inventory.bulk-save') }}" id="bulkForm">
         @csrf
-        <input type="hidden" name="sede_id" value="{{ $sede->id }}">
+        <input type="hidden" name="loc_type"   value="{{ $locType }}">
+        @if($locType === 'sede')
+        <input type="hidden" name="sede_id"    value="{{ $sede->id }}">
+        @else
+        <input type="hidden" name="almacen_id" value="{{ $almacen->id }}">
+        @endif
 
         <div class="bg-white rounded-xl border border-gray-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
 

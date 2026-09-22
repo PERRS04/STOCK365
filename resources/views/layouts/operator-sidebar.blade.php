@@ -3,10 +3,16 @@
     $activeCashSession = auth()->user()->sede_id
         ? \App\Models\CashSession::activeForUser(auth()->id(), auth()->user()->sede_id)
         : null;
-    $hasSede = auth()->user()->sede_id !== null;
+    $hasSede    = auth()->user()->sede_id !== null;
+    $hasAlmacen = auth()->user()->almacen_id !== null;
     $pendingMyCashMovements = $hasSede ? \App\Models\CashMovement::where('user_id', auth()->id())->where('status', 'pendiente')->count() : 0;
     $pendingMyReceipts      = $hasSede ? \App\Models\InventoryReceipt::where('user_id', auth()->id())->where('estado', 'pendiente')->count() : 0;
     $pendingSedePayments    = $hasSede ? \App\Models\ReceiptPaymentAllocation::where('source_sede_id', auth()->user()->sede_id)->where('status', 'pending')->count() : 0;
+    $pendingMyTransfers     = $hasAlmacen
+        ? \App\Models\StockTransfer::where('estado', 'pendiente')
+            ->where(function ($q) { $id = auth()->user()->almacen_id; $q->where('from_almacen_id', $id)->orWhere('to_almacen_id', $id); })
+            ->count()
+        : 0;
 @endphp
 
 <aside class="w-56 sidebar-bg flex flex-col shrink-0 overflow-hidden">
@@ -17,10 +23,15 @@
         <span class="ml-auto text-[9px] font-bold tracking-[0.12em] uppercase px-2 py-[3px] rounded-md bg-white/10 text-blue-200 border border-white/10">OPR</span>
     </div>
 
-    {{-- Sede badge --}}
+    {{-- Workplace badge --}}
     <div class="px-5 py-3 border-b border-white/[0.07] shrink-0">
-        <p class="text-[9px] font-semibold text-white/35 uppercase tracking-[0.16em] mb-1">Sede activa</p>
-        <p class="text-[13px] font-semibold text-white leading-none">{{ auth()->user()->sede?->nombre ?? '—' }}</p>
+        @if($hasAlmacen)
+            <p class="text-[9px] font-semibold text-white/35 uppercase tracking-[0.16em] mb-1">Depósito</p>
+            <p class="text-[13px] font-semibold text-white leading-none">{{ auth()->user()->almacen?->nombre ?? '—' }}</p>
+        @else
+            <p class="text-[9px] font-semibold text-white/35 uppercase tracking-[0.16em] mb-1">Sede activa</p>
+            <p class="text-[13px] font-semibold text-white leading-none">{{ auth()->user()->sede?->nombre ?? '—' }}</p>
+        @endif
     </div>
 
     {{-- Nav --}}
@@ -35,7 +46,11 @@
             Dashboard
         </a>
 
-        {{-- ── OPERACIONES ────────────────────────────────────── --}}
+        {{-- ═══════════════════════════════════════════════════════
+             SEDE OPERATOR: POS, Caja, Ventas, Recepción
+        ═══════════════════════════════════════════════════════ --}}
+        @if($hasSede)
+
         <p class="px-3 pt-5 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Operaciones</p>
 
         <a href="{{ $activeCashSession ? route('cash-session.status') : route('cash-session.create') }}"
@@ -80,7 +95,6 @@
             Historial
         </a>
 
-        {{-- Depósitos / Caja --}}
         @if(auth()->user()->isOperator())
         <a href="{{ route('cash-movements.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
@@ -95,8 +109,6 @@
         </a>
         @endif
 
-        {{-- Pagos entre sedes --}}
-        @if($hasSede)
         <a href="{{ route('sede-payments.pending') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
                   {{ request()->routeIs('sede-payments.*') ? 'nav-active' : 'nav-inactive' }}">
@@ -108,11 +120,8 @@
                 <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-orange-500 text-white">{{ $pendingSedePayments }}</span>
             @endif
         </a>
-        @endif
 
-        {{-- ── INVENTARIO ───────────────────────────────────────── --}}
         @can('receipts.create')
-        @if($hasSede)
         <p class="px-3 pt-5 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Inventario</p>
         <a href="{{ route('inventory-receipts.create') }}"
            class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
@@ -125,8 +134,48 @@
                 <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-indigo-500 text-white">{{ $pendingMyReceipts }}</span>
             @endif
         </a>
-        @endif
         @endcan
+
+        @endif {{-- end $hasSede --}}
+
+        {{-- ═══════════════════════════════════════════════════════
+             ALMACÉN OPERATOR: Mi Depósito workspace only
+        ═══════════════════════════════════════════════════════ --}}
+        @if($hasAlmacen)
+
+        <p class="px-3 pt-5 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Mi Depósito</p>
+
+        <a href="{{ route('deposito.stock') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
+                  {{ request()->routeIs('deposito.stock') ? 'nav-active' : 'nav-inactive' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            Stock
+        </a>
+
+        <a href="{{ route('deposito.movimientos') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
+                  {{ request()->routeIs('deposito.movimientos') ? 'nav-active' : 'nav-inactive' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Movimientos
+        </a>
+
+        <a href="{{ route('deposito.transferencias') }}"
+           class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
+                  {{ request()->routeIs('deposito.transferencias*') ? 'nav-active' : 'nav-inactive' }}">
+            <svg class="w-[15px] h-[15px] shrink-0 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+            <span class="flex-1">Transferencias</span>
+            @if($pendingMyTransfers > 0)
+                <span class="text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-amber-500 text-white">{{ $pendingMyTransfers }}</span>
+            @endif
+        </a>
+
+        @endif {{-- end $hasAlmacen --}}
 
     </nav>
 

@@ -14,6 +14,7 @@ use App\Services\ActivityLogger;
 use App\Services\InventoryStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class StockTransferController extends Controller
 {
@@ -52,10 +53,10 @@ class StockTransferController extends Controller
         abort_unless(auth()->user()->can('inventory.view'), 403);
 
         $validated = $request->validate([
-            'from_sede_id'       => 'nullable|exists:sedes,id',
-            'from_almacen_id'    => 'nullable|exists:almacenes,id',
-            'to_sede_id'         => 'nullable|exists:sedes,id',
-            'to_almacen_id'      => 'nullable|exists:almacenes,id',
+            'from_sede_id'       => ['nullable', Rule::exists('sedes', 'id')->where('activa', true)],
+            'from_almacen_id'    => ['nullable', Rule::exists('almacenes', 'id')->where('activo', true)],
+            'to_sede_id'         => ['nullable', Rule::exists('sedes', 'id')->where('activa', true)],
+            'to_almacen_id'      => ['nullable', Rule::exists('almacenes', 'id')->where('activo', true)],
             'motivo'             => 'nullable|string|max:500',
             'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -173,7 +174,7 @@ class StockTransferController extends Controller
 
     public function approve(Request $request, StockTransfer $transfer)
     {
-        abort_unless(auth()->user()->can('products.create'), 403);
+        abort_unless(auth()->user()->can('transfers.approve'), 403);
 
         $validated = $request->validate([
             'notas_aprobacion' => 'nullable|string|max:500',
@@ -253,7 +254,7 @@ class StockTransferController extends Controller
 
     public function reject(Request $request, StockTransfer $transfer)
     {
-        abort_unless(auth()->user()->can('products.create'), 403);
+        abort_unless(auth()->user()->can('transfers.approve'), 403);
 
         $validated = $request->validate(['notas_aprobacion' => 'required|string|max:500']);
 

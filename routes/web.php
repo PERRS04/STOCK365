@@ -24,6 +24,7 @@ use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\SedePaymentController;
 use App\Http\Controllers\AlmacenController;
+use App\Http\Controllers\AlmacenWorkspaceController;
 use App\Http\Controllers\OperationalLockController;
 
 Route::get('/', function () {
@@ -164,4 +165,12 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     Route::get('/equipo/inteligencia', fn () => view('workforce.dashboard'))
         ->middleware('boss')
         ->name('workforce.dashboard');
+
+    // ── Depósito Workspace (operador with almacen_id only) ────────────────────
+    Route::get('/mi-deposito',                              [AlmacenWorkspaceController::class, 'stock'])->name('deposito.stock');
+    Route::get('/mi-deposito/movimientos',                  [AlmacenWorkspaceController::class, 'movements'])->name('deposito.movimientos');
+    Route::get('/mi-deposito/transferencias',               [AlmacenWorkspaceController::class, 'transfers'])->name('deposito.transferencias');
+    Route::get('/mi-deposito/transferencias/nueva',         [AlmacenWorkspaceController::class, 'createTransfer'])->name('deposito.transferencias.create');
+    Route::post('/mi-deposito/transferencias',              [AlmacenWorkspaceController::class, 'storeTransfer'])->name('deposito.transferencias.store');
+    Route::get('/mi-deposito/transferencias/{transfer}',    [AlmacenWorkspaceController::class, 'showTransfer'])->name('deposito.transferencias.show');
 });

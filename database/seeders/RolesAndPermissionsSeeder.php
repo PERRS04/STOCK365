@@ -34,6 +34,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'courtesies.approve',
             'cash_movements.create',
             'cash_movements.approve',
+            'transfers.approve',
         ];
 
         foreach ($permissions as $name) {
@@ -67,6 +68,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'courtesies.approve',
             'cash_movements.create',
             'cash_movements.approve',
+            'transfers.approve',
         ]);
 
         $boss = Role::firstOrCreate(['name' => 'boss']);

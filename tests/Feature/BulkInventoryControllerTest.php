@@ -51,6 +51,7 @@ class BulkInventoryControllerTest extends TestCase
 
     private function postSave(array $params): \Illuminate\Testing\TestResponse
     {
+        $params += ['loc_type' => 'sede'];
         return $this->actingAs($this->boss)->post(route('inventory.bulk-save'), $params);
     }
 
@@ -471,7 +472,7 @@ class BulkInventoryControllerTest extends TestCase
             'quantities' => [$product->id => 15],
         ]);
 
-        $response->assertRedirect(route('inventory.bulk-load', ['sede_id' => $this->sede->id]));
+        $response->assertRedirect(route('inventory.bulk-load', ['loc_type' => 'sede', 'sede_id' => $this->sede->id]));
     }
 
     // ── 22. Flash success preservado ─────────────────────────────────────────
