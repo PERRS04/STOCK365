@@ -132,7 +132,7 @@
                         </span>
                         <div>
                             <span class="text-[15px] font-bold text-gray-800">{{ $pres->nombre }}</span>
-                            <span class="text-[12px] text-gray-400 ml-2">× {{ $pres->factor_stock }} unidades base</span>
+                            <span class="text-[12px] text-gray-400 ml-2">× {{ $pres->factor_stock }} uds. base (descuenta {{ $pres->factor_stock }} del inventario por unidad vendida)</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
@@ -197,9 +197,10 @@
                         @foreach($pres->sedePrices as $pp)
                         <tr>
                             <td class="py-1 pr-4 text-gray-700">
-                                {{ $pp->sede?->nombre ?? '<span class="italic text-gray-400">Global (todas las sedes)</span>' }}
-                                @if(!$pp->sede)
-                                <span class="italic text-gray-400">Global (todas las sedes)</span>
+                                @if($pp->sede)
+                                    {{ $pp->sede->nombre }}
+                                @else
+                                    <span class="italic text-gray-400">Global (todas las sedes)</span>
                                 @endif
                             </td>
                             <td class="py-1 pr-4 text-right font-semibold tabular-nums">${{ number_format($pp->precio_venta, 2) }}</td>

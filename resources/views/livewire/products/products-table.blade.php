@@ -54,6 +54,10 @@
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{{ route('products.edit', $product) }}"
                                    class="text-blue-600 hover:text-blue-800 font-medium transition text-xs">Editar</a>
+                                @if(auth()->user()->isBoss())
+                                <a href="{{ route('product-pricing.index', $product) }}"
+                                   class="text-indigo-600 hover:text-indigo-800 font-medium transition text-xs">Precios</a>
+                                @endif
                                 <button
                                     type="button"
                                     @click="
