@@ -52,12 +52,11 @@ class DashboardController extends Controller
 
         $utilidadHoy = DB::table('sale_items')
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->join('products', 'products.id', '=', 'sale_items.product_id')
             ->whereDate('sales.fecha_venta', $today)
             ->where('sales.estado', 'completada')
             ->when($isDemo, fn($q) => $q->whereIn('sales.sede_id', $demoIds),
                             fn($q) => $q->whereNotIn('sales.sede_id', $demoIds))
-            ->sum(DB::raw('sale_items.cantidad * (products.precio_venta - products.precio_compra)'));
+            ->sum(DB::raw('sale_items.subtotal - (sale_items.cantidad * sale_items.costo_unitario)'));
 
         $pendingClosings = CashClosing::where('estado', 'pendiente')
             ->when($isDemo, fn($q) => $q->whereIn('sede_id', $demoIds),

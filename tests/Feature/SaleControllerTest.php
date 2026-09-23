@@ -597,6 +597,8 @@ class SaleControllerTest extends TestCase
     }
 
     // ── 31. SaleItem contiene costo_unitario correcto ─────────────────────────
+    // NOTE (Etapa 4): Server now resolves precio_unitario from product.precio_venta
+    // (or product_sede_prices if configured). The frontend-sent precio_unitario is ignored.
 
     #[Test]
     public function test_sale_item_preserva_costo_unitario_del_producto(): void
@@ -605,14 +607,18 @@ class SaleControllerTest extends TestCase
         $this->makeInventory($product, 10);
 
         $response = $this->postSale([$this->itemPayload($product->id, 2, 50.00)]);
+        $response->assertStatus(200);
 
         $saleId = $response->json('sale_id');
 
+        // costo_unitario must always reflect the snapshot of product.precio_compra.
+        // precio_unitario is now server-resolved (product.precio_venta), NOT the value
+        // sent by the frontend — so we verify it matches the product's actual precio_venta.
         $this->assertDatabaseHas('sale_items', [
             'sale_id'        => $saleId,
             'product_id'     => $product->id,
             'costo_unitario' => 25.00,
-            'precio_unitario' => 50.00,
+            'precio_unitario' => (float) $product->precio_venta,
             'cantidad'       => 2,
         ]);
     }

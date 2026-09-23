@@ -6,17 +6,22 @@ use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InventoryNotFoundException;
 use App\Models\CashSession;
 use App\Models\Product;
+use App\Models\ProductPresentation;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\ActivityLogger;
 use App\Services\InventoryStockService;
+use App\Services\PriceResolverService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SaleController extends Controller
 {
-    public function __construct(private InventoryStockService $stockService) {}
+    public function __construct(
+        private InventoryStockService $stockService,
+        private PriceResolverService  $priceResolver,
+    ) {}
 
     public function create()
     {
@@ -29,9 +34,20 @@ class SaleController extends Controller
             ? CashSession::activeForUser($user->id, $user->sede_id)
             : null;
 
+        $sede     = $user->sede;
+        $products = Product::where('activo', true)->get();
+
+        $presentationsMap = $products
+            ->mapWithKeys(fn ($p) => [
+                $p->id => $this->priceResolver->presentationsForSede($p, $sede->id),
+            ])
+            ->filter(fn ($ps) => $ps->isNotEmpty())
+            ->toArray();
+
         return view('operator.point-of-sale', [
-            'sede'        => $user->sede,
-            'cashSession' => $cashSession,
+            'sede'             => $sede,
+            'cashSession'      => $cashSession,
+            'presentationsMap' => $presentationsMap,
         ]);
     }
 
@@ -42,23 +58,93 @@ class SaleController extends Controller
         abort_if(auth()->user()->sede_id === null, 403);
 
         $validated = $request->validate([
-            'items'                    => 'required|array',
-            'items.*.product_id'       => 'required|exists:products,id',
-            'items.*.cantidad'         => 'required|integer|min:1',
-            'items.*.precio_unitario'  => 'required|numeric|min:0',
-            'descuento'                => 'nullable|numeric|min:0',
+            'items'                           => 'required|array',
+            'items.*.product_id'              => 'required|exists:products,id',
+            'items.*.presentation_id'         => 'nullable|integer',
+            // Accept both new (cantidad_presentaciones) and legacy (cantidad) field names.
+            // At least one must be present.
+            'items.*.cantidad_presentaciones' => 'nullable|integer|min:1',
+            'items.*.cantidad'                => 'nullable|integer|min:1',
+            'descuento'                       => 'nullable|numeric|min:0',
         ]);
 
-        // Merge duplicate product_ids and sort ASC to prevent deadlocks under concurrency
-        $items = $this->normalizeItems($validated['items']);
+        // Normalise: unify cantidad_presentaciones / cantidad into cantidad_presentaciones
+        foreach ($validated['items'] as &$rawItem) {
+            if (empty($rawItem['cantidad_presentaciones'])) {
+                $rawItem['cantidad_presentaciones'] = $rawItem['cantidad'] ?? 1;
+            }
+        }
+        unset($rawItem);
+
+        $sede = Auth::user()->sede;
+
+        // Resolve prices server-side and build enriched items
+        $enrichedItems = [];
+        foreach ($validated['items'] as $raw) {
+            $product        = Product::findOrFail($raw['product_id']);
+            $presentationId = $raw['presentation_id'] ?? null;
+            $qtyPres        = (int) $raw['cantidad_presentaciones'];
+
+            if ($presentationId !== null) {
+                $presentation = ProductPresentation::find($presentationId);
+
+                if (!$presentation || $presentation->product_id !== $product->id) {
+                    return response()->json([
+                        'error' => "La presentación #{$presentationId} no pertenece al producto #{$product->id}.",
+                    ], 422);
+                }
+
+                if (!$presentation->activo) {
+                    return response()->json([
+                        'error' => "La presentación «{$presentation->nombre}» está desactivada.",
+                    ], 422);
+                }
+
+                $resolvedPrice = $this->priceResolver->forPresentation($presentation, $sede->id);
+
+                if ($resolvedPrice === null) {
+                    return response()->json([
+                        'error' => "La presentación «{$presentation->nombre}» no tiene precio configurado para esta sede.",
+                    ], 422);
+                }
+
+                $cantidadBase = $qtyPres * $presentation->factor_stock;
+
+                $enrichedItems[] = [
+                    'product_id'              => $product->id,
+                    'presentation_id'         => $presentation->id,
+                    'presentation_name'       => $presentation->nombre,
+                    'presentation_factor'     => $presentation->factor_stock,
+                    'cantidad_presentaciones' => $qtyPres,
+                    'cantidad'                => $cantidadBase,
+                    'precio_unitario'         => $resolvedPrice,
+                    'subtotal'                => $qtyPres * $resolvedPrice,
+                    'costo_unitario'          => (float) ($product->precio_compra ?? 0),
+                ];
+            } else {
+                $resolvedPrice = $this->priceResolver->forProduct($product, $sede->id);
+
+                $enrichedItems[] = [
+                    'product_id'              => $product->id,
+                    'presentation_id'         => null,
+                    'presentation_name'       => null,
+                    'presentation_factor'     => null,
+                    'cantidad_presentaciones' => $qtyPres,
+                    'cantidad'                => $qtyPres,
+                    'precio_unitario'         => $resolvedPrice,
+                    'subtotal'                => $qtyPres * $resolvedPrice,
+                    'costo_unitario'          => (float) ($product->precio_compra ?? 0),
+                ];
+            }
+        }
+
+        // Merge duplicate (product_id, presentation_id) pairs, sort for deadlock avoidance
+        $items = $this->normalizeItems($enrichedItems);
 
         try {
-            return DB::transaction(function () use ($items, $validated) {
-                $sede         = Auth::user()->sede;
+            return DB::transaction(function () use ($items, $validated, $sede) {
                 $descuento    = $validated['descuento'] ?? 0;
-                $totalSistema = array_sum(
-                    array_map(fn($i) => $i['cantidad'] * $i['precio_unitario'], $items)
-                );
+                $totalSistema = array_sum(array_map(fn ($i) => $i['subtotal'], $items));
 
                 $cashSession = CashSession::activeForUser(Auth::id(), $sede->id);
 
@@ -73,23 +159,25 @@ class SaleController extends Controller
                 ]);
 
                 foreach ($items as $item) {
-                    $product = Product::find($item['product_id']);
-
                     SaleItem::create([
-                        'sale_id'         => $sale->id,
-                        'product_id'      => $item['product_id'],
-                        'cantidad'        => $item['cantidad'],
-                        'precio_unitario' => $item['precio_unitario'],
-                        'costo_unitario'  => $product->precio_compra ?? 0,
-                        'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
+                        'sale_id'                 => $sale->id,
+                        'product_id'              => $item['product_id'],
+                        'presentation_id'         => $item['presentation_id'],
+                        'presentation_name'       => $item['presentation_name'],
+                        'presentation_factor'     => $item['presentation_factor'],
+                        'cantidad_presentaciones' => $item['cantidad_presentaciones'],
+                        'cantidad'                => $item['cantidad'],
+                        'precio_unitario'         => $item['precio_unitario'],
+                        'costo_unitario'          => $item['costo_unitario'],
+                        'subtotal'                => $item['subtotal'],
                     ]);
 
                     $this->stockService->salida(
                         productId:     $item['product_id'],
-                        cantidad:      $item['cantidad'],
+                        cantidad:      $item['cantidad'],   // always base units
                         sedeId:        $sede->id,
                         almacenId:     null,
-                        costoUnitario: $product->precio_compra ?? null,
+                        costoUnitario: $item['costo_unitario'] ?: null,
                         userId:        Auth::id(),
                         motivo:        'Venta',
                         referenceId:   $sale->id,
@@ -134,20 +222,28 @@ class SaleController extends Controller
         return view('sales.history', compact('sales'));
     }
 
-    // Merge items that share the same product_id (sum quantities, keep first price),
-    // then sort ASC by product_id to acquire row locks in a consistent order and
-    // reduce deadlock risk when multiple transactions run concurrently.
+    /**
+     * Merge items sharing the same (product_id, presentation_id) composite key,
+     * summing cantidad_presentaciones and cantidad. Sort by composite key to prevent
+     * deadlocks when multiple transactions run concurrently.
+     */
     private function normalizeItems(array $rawItems): array
     {
         $consolidated = [];
+
         foreach ($rawItems as $item) {
-            $pid = $item['product_id'];
-            if (isset($consolidated[$pid])) {
-                $consolidated[$pid]['cantidad'] += $item['cantidad'];
+            $key = $item['product_id'] . '::' . ($item['presentation_id'] ?? 'none');
+
+            if (isset($consolidated[$key])) {
+                $existing = &$consolidated[$key];
+                $existing['cantidad_presentaciones'] += $item['cantidad_presentaciones'];
+                $existing['cantidad']                += $item['cantidad'];
+                $existing['subtotal']                += $item['subtotal'];
             } else {
-                $consolidated[$pid] = $item;
+                $consolidated[$key] = $item;
             }
         }
+
         ksort($consolidated);
         return array_values($consolidated);
     }

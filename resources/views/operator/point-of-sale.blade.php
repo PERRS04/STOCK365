@@ -5,6 +5,7 @@
     x-data="posCart('{{ route('sales.store') }}')"
     x-init="init()"
     @add-to-cart.window="addItem($event.detail)"
+    @show-presentation-picker.window="openPicker($event.detail)"
     @keydown.escape.window="handleEsc()"
     @keydown.f2.window.prevent="submitSale()"
     @keydown.ctrl.b.window.prevent="focusSearch()"
@@ -79,7 +80,7 @@
 
         {{-- Item list --}}
         <div class="p-4 space-y-2">
-            <template x-for="item in items" :key="item.id">
+            <template x-for="item in items" :key="item.cartKey">
                 <div
                     x-show="true"
                     x-transition:enter="transition ease-out duration-180"
@@ -93,6 +94,9 @@
                     {{-- Product info --}}
                     <div class="flex-1 min-w-0">
                         <p class="text-[13px] font-semibold text-gray-800 leading-tight truncate" x-text="item.nombre"></p>
+                        <template x-if="item.presentation_name">
+                            <p class="text-[11px] text-[#003594]/70 font-medium mt-0.5 truncate" x-text="item.presentation_name"></p>
+                        </template>
                         <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">
                             $<span x-text="item.precio.toFixed(2)"></span>
                             <span class="text-gray-300 mx-0.5">×</span>
@@ -274,10 +278,92 @@
     </div>
 </div>
 
+{{-- ════════════════════════════════════════════════════════════
+     PRESENTATION PICKER MODAL
+     ════════════════════════════════════════════════════════════ --}}
+<div
+    x-show="pickerOpen"
+    x-cloak
+    @keydown.escape.window="pickerOpen && closePicker()"
+    class="fixed inset-0 z-40 flex items-center justify-center"
+    style="background: rgba(0,18,51,0.55); backdrop-filter: blur(6px);"
+>
+    <div
+        x-show="pickerOpen"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 scale-90 translate-y-4"
+        x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-90"
+        class="bg-white rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.25)] w-full max-w-md mx-4 overflow-hidden"
+        @click.outside="closePicker()"
+    >
+        <div class="h-1 bg-gradient-to-r from-[#003594] to-[#0044bb]"></div>
+
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <p class="text-[11px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-0.5">Presentación</p>
+                    <p class="text-[15px] font-bold text-gray-900" x-text="pickerProductName"></p>
+                </div>
+                <button @click="closePicker()" class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            {{-- Presentation buttons --}}
+            <div class="grid gap-2 mb-5">
+                <template x-for="pres in pickerPresentations" :key="pres.id">
+                    <button
+                        @click="selectPresentation(pres)"
+                        :class="selectedPresentation && selectedPresentation.id === pres.id
+                            ? 'border-[#003594] bg-[#003594]/5 text-[#003594]'
+                            : 'border-gray-200 text-gray-700 hover:border-[#003594]/40 hover:bg-gray-50'"
+                        class="flex items-center justify-between px-4 py-3 rounded-xl border transition text-left"
+                    >
+                        <span class="font-semibold text-[14px]" x-text="pres.nombre"></span>
+                        <span class="text-[13px] font-bold tabular-nums" x-text="'$' + pres.precio.toFixed(2)"></span>
+                    </button>
+                </template>
+            </div>
+
+            {{-- Qty row --}}
+            <div class="flex items-center gap-3 mb-5">
+                <label class="text-[12px] font-medium text-gray-500 shrink-0">Cantidad:</label>
+                <div class="flex items-center gap-2">
+                    <button @click="pickerQty = Math.max(1, pickerQty - 1)"
+                        class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold transition">−</button>
+                    <span x-text="pickerQty" class="w-8 text-center font-bold text-[15px] tabular-nums"></span>
+                    <button @click="pickerQty++"
+                        class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold transition">+</button>
+                </div>
+                <span class="text-[12px] text-gray-400 ml-auto" x-show="selectedPresentation">
+                    Total: $<span x-text="selectedPresentation ? (selectedPresentation.precio * pickerQty).toFixed(2) : '0.00'"></span>
+                </span>
+            </div>
+
+            {{-- Confirm --}}
+            <button
+                @click="confirmPicker()"
+                :disabled="!selectedPresentation"
+                class="w-full h-11 bg-[#003594] text-white rounded-xl font-bold text-[14px]
+                       disabled:opacity-30 disabled:cursor-not-allowed
+                       hover:bg-[#002470] active:scale-[0.98] transition-all focus:outline-none"
+            >
+                Agregar al carrito
+            </button>
+        </div>
+    </div>
+</div>
+
 </div>
 @endsection
 
 @push('scripts')
+{{-- Inject presentations map from server --}}
+<script>window._presentationsMap = @json($presentationsMap ?? []);</script>
+
 <script>
 function posCart(storeUrl) {
     return {
@@ -288,6 +374,15 @@ function posCart(storeUrl) {
         lastTotal:     0,
         lastItemCount: 0,
         storeUrl,
+
+        // Presentation picker state
+        pickerOpen:          false,
+        pickerProductId:     null,
+        pickerProductName:   '',
+        pickerPresentations: [],
+        selectedPresentation: null,
+        pickerQty:           1,
+        _pendingDetail:      null,
 
         get subtotal() {
             return this.items.reduce((s, i) => s + i.precio * i.cantidad, 0);
@@ -309,24 +404,92 @@ function posCart(storeUrl) {
         },
 
         addItem(detail) {
-            const existing = this.items.find(i => i.id === detail.id);
+            // Check if this product has presentations configured for this sede
+            const presentations = window._presentationsMap[detail.id];
+            if (presentations && presentations.length > 0) {
+                // Show the presentation picker modal
+                this.openPicker(detail);
+                return;
+            }
+
+            // No presentations — add directly using cartKey = "productId-none"
+            const cartKey = `${detail.id}-none`;
+            const existing = this.items.find(i => i.cartKey === cartKey);
             if (existing) {
                 existing.cantidad++;
                 existing._bump = true;
             } else {
                 this.items.push({
-                    id:       detail.id,
-                    nombre:   detail.nombre,
-                    precio:   detail.precio,
-                    cantidad: 1,
-                    _bump:    false,
+                    cartKey:           cartKey,
+                    product_id:        detail.id,
+                    nombre:            detail.nombre,
+                    presentation_id:   null,
+                    presentation_name: null,
+                    presentation_factor: null,
+                    precio:            detail.precio,
+                    cantidad:          1,
+                    _bump:             false,
                 });
             }
         },
 
+        openPicker(detail) {
+            const presentations = window._presentationsMap[detail.id];
+            if (!presentations || presentations.length === 0) {
+                // Fallback: add directly
+                this.addItem(detail);
+                return;
+            }
+            this._pendingDetail      = detail;
+            this.pickerProductId     = detail.id;
+            this.pickerProductName   = detail.nombre;
+            this.pickerPresentations = presentations;
+            this.selectedPresentation = null;
+            this.pickerQty           = 1;
+            this.pickerOpen          = true;
+        },
+
+        selectPresentation(pres) {
+            this.selectedPresentation = pres;
+        },
+
+        confirmPicker() {
+            if (!this.selectedPresentation || !this._pendingDetail) return;
+
+            const pres    = this.selectedPresentation;
+            const detail  = this._pendingDetail;
+            const cartKey = `${detail.id}-${pres.id}`;
+
+            const existing = this.items.find(i => i.cartKey === cartKey);
+            if (existing) {
+                existing.cantidad += this.pickerQty;
+                existing._bump = true;
+            } else {
+                this.items.push({
+                    cartKey:             cartKey,
+                    product_id:          detail.id,
+                    nombre:              detail.nombre,
+                    presentation_id:     pres.id,
+                    presentation_name:   pres.nombre,
+                    presentation_factor: pres.factor,
+                    precio:              pres.precio,
+                    cantidad:            this.pickerQty,
+                    _bump:               false,
+                });
+            }
+
+            this.closePicker();
+        },
+
+        closePicker() {
+            this.pickerOpen       = false;
+            this._pendingDetail   = null;
+            this.selectedPresentation = null;
+        },
+
         decreaseItem(item) {
             if (item.cantidad <= 1) {
-                this.items = this.items.filter(i => i.id !== item.id);
+                this.items = this.items.filter(i => i.cartKey !== item.cartKey);
             } else {
                 item.cantidad--;
                 item._bump = true;
@@ -344,8 +507,9 @@ function posCart(storeUrl) {
         },
 
         handleEsc() {
-            if (this.success)  { this.resetCart(); return; }
-            if (this.loading)  return;
+            if (this.pickerOpen) { this.closePicker(); return; }
+            if (this.success)    { this.resetCart(); return; }
+            if (this.loading)    return;
             if (this.items.length === 0) { this.focusSearch(); return; }
             Swal.fire({
                 title: '¿Cancelar venta?',
@@ -385,9 +549,9 @@ function posCart(storeUrl) {
 
             const payload = {
                 items: this.items.map(i => ({
-                    product_id:      i.id,
-                    cantidad:        i.cantidad,
-                    precio_unitario: i.precio,
+                    product_id:               i.product_id,
+                    presentation_id:          i.presentation_id ?? null,
+                    cantidad_presentaciones:  i.cantidad,
                 })),
                 descuento: parseFloat(this.descuento) || 0,
             };

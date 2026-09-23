@@ -61,6 +61,16 @@ class Product extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    public function presentations()
+    {
+        return $this->hasMany(ProductPresentation::class)->orderBy('sort_order');
+    }
+
+    public function sedePrices()
+    {
+        return $this->hasMany(ProductSedePrice::class);
+    }
+
     public function getMargenAttribute()
     {
         if ($this->precio_compra > 0) {

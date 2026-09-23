@@ -4,6 +4,7 @@ namespace App\Livewire\Pos;
 
 use App\Models\Inventory;
 use App\Models\Product;
+use App\Models\ProductSedePrice;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -49,6 +50,20 @@ class ProductSearch extends Component
                 ->pluck('cantidad_stock', 'product_id');
 
             $query->each(fn ($p) => $p->stock_sede = $stockMap->get($p->id, 0));
+
+            // Override precio_venta in-memory with sede-specific price if configured.
+            // This bridges the dirty Blade (product-search.blade.php) which hardcodes
+            // precio_venta into the onclick payload — no DB write, no file modification needed.
+            $sedePriceMap = ProductSedePrice::where('sede_id', $sedeId)
+                ->where('activo', true)
+                ->whereIn('product_id', $query->pluck('id'))
+                ->pluck('precio_venta', 'product_id');
+
+            $query->each(function ($p) use ($sedePriceMap) {
+                if ($sedePriceMap->has($p->id)) {
+                    $p->precio_venta = $sedePriceMap->get($p->id);
+                }
+            });
         } else {
             $query->each(fn ($p) => $p->stock_sede = null);
         }

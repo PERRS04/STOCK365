@@ -26,6 +26,7 @@ use App\Http\Controllers\SedePaymentController;
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\AlmacenWorkspaceController;
 use App\Http\Controllers\OperationalLockController;
+use App\Http\Controllers\ProductPresentationController;
 
 Route::get('/', function () {
     return auth()->check()
@@ -148,6 +149,18 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     // ── Configuration (boss only) ─────────────────────────────────────────────
     Route::resource('sedes', SedeController::class);
     Route::resource('users', UserController::class);
+
+    // ── Product Pricing & Presentations (boss only) ───────────────────────────
+    Route::middleware('boss')->group(function () {
+        Route::get('/products/{product}/pricing',                                           [ProductPresentationController::class, 'index'])->name('product-pricing.index');
+        Route::post('/products/{product}/presentations',                                    [ProductPresentationController::class, 'storePresentation'])->name('product-presentations.store');
+        Route::patch('/products/{product}/presentations/{presentation}',                    [ProductPresentationController::class, 'updatePresentation'])->name('product-presentations.update');
+        Route::delete('/products/{product}/presentations/{presentation}',                   [ProductPresentationController::class, 'destroyPresentation'])->name('product-presentations.destroy');
+        Route::post('/products/{product}/presentations/{presentation}/prices',              [ProductPresentationController::class, 'storePrice'])->name('presentation-prices.store');
+        Route::delete('/products/{product}/presentations/{presentation}/prices/{price}',    [ProductPresentationController::class, 'destroyPrice'])->name('presentation-prices.destroy');
+        Route::post('/products/{product}/sede-prices',                                      [ProductPresentationController::class, 'storeSedePrice'])->name('product-sede-prices.store');
+        Route::delete('/products/{product}/sede-prices/{price}',                            [ProductPresentationController::class, 'destroySedePrice'])->name('product-sede-prices.destroy');
+    });
 
     // ── Almacenes (boss only) ─────────────────────────────────────────────────
     Route::middleware('boss')->group(function () {
