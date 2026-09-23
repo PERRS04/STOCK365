@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     Route::get('/pos', [SaleController::class, 'create'])->middleware('cash.session')->name('pos.create');
     Route::post('/sales', [SaleController::class, 'store'])->middleware('cash.session')->name('sales.store');
     Route::get('/sales/history', [SaleController::class, 'history'])->name('sales.history');
+    Route::get('/sales/{sale}/ticket', [SaleController::class, 'ticket'])->name('sales.ticket');
 
     // ── Cash Closing (operators submit; supervisors + boss approve) ──────────
     Route::get('/cash-closing', [CashClosingController::class, 'create'])->name('cash-closing.create');

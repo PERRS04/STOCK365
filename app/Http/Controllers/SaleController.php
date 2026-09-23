@@ -222,6 +222,21 @@ class SaleController extends Controller
         return view('sales.history', compact('sales'));
     }
 
+    public function ticket(Sale $sale)
+    {
+        $user = auth()->user();
+        abort_unless($user->can('sales.view.own'), 403);
+
+        // IDOR guard: operators may only print tickets for their own sede.
+        if ($user->isOperator() && $sale->sede_id !== $user->sede_id) {
+            abort(403);
+        }
+
+        $sale->load(['items.product', 'user', 'sede']);
+
+        return view('sales.ticket', compact('sale'));
+    }
+
     /**
      * Merge items sharing the same (product_id, presentation_id) composite key,
      * summing cantidad_presentaciones and cantidad. Sort by composite key to prevent

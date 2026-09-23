@@ -15,6 +15,7 @@
                     <th class="text-left py-3 px-5 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Productos</th>
                     <th class="text-right py-3 px-5 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Descuento</th>
                     <th class="text-right py-3 px-5 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Total</th>
+                    <th class="py-3 px-5"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -37,6 +38,12 @@
                         </td>
                         <td class="py-3 px-5 text-right text-red-500">{{ formatCurrency(0 - ($sale->descuento ?? 0)) }}</td>
                         <td class="py-3 px-5 text-right font-semibold text-gray-900">{{ formatCurrency($sale->total_sistema) }}</td>
+                        <td class="py-3 px-5 text-right">
+                            <a href="{{ route('sales.ticket', $sale) }}" target="_blank" rel="noopener"
+                               class="text-[11px] font-medium text-gray-400 hover:text-[#003594] transition-colors whitespace-nowrap">
+                                Ticket &#8599;
+                            </a>
+                        </td>
                     </tr>
                 @empty
                     <x-empty-state :colspan="5" icon="cart" title="Sin ventas registradas"

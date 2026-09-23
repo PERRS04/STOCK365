@@ -263,10 +263,29 @@
                 <p class="text-[13px] text-gray-400 mt-3" x-text="lastItemCount + ' unidad(es) vendida(s)'"></p>
             </template>
 
+            <template x-if="lastSaleId !== null">
+                <a
+                    x-bind:href="'{{ url('/sales') }}/' + lastSaleId + '/ticket'"
+                    target="_blank"
+                    rel="noopener"
+                    class="mt-6 w-full h-10 border-2 border-[#003594]/25 text-[#003594] rounded-2xl
+                           font-semibold text-[13px] hover:border-[#003594]/60 hover:bg-[#003594]/5
+                           active:scale-[0.98] transition-all duration-120
+                           flex items-center justify-center gap-2 no-underline"
+                >
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2
+                                 m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z"/>
+                    </svg>
+                    Imprimir ticket
+                </a>
+            </template>
+
             <button
                 @click="resetCart()"
                 autofocus
-                class="mt-8 w-full h-12 bg-[#003594] text-white rounded-2xl font-bold text-[14px]
+                class="mt-3 w-full h-12 bg-[#003594] text-white rounded-2xl font-bold text-[14px]
                        hover:bg-[#002470] active:scale-[0.98] transition-all duration-120
                        focus:outline-none focus:ring-2 focus:ring-[#003594]/40
                        flex items-center justify-center gap-2.5 shadow-[0_4px_16px_rgba(0,53,148,0.25)]"
@@ -373,6 +392,7 @@ function posCart(storeUrl) {
         loading:       false,
         lastTotal:     0,
         lastItemCount: 0,
+        lastSaleId:    null,
         storeUrl,
 
         // Presentation picker state
@@ -539,6 +559,7 @@ function posCart(storeUrl) {
             this.success       = false;
             this.lastTotal     = 0;
             this.lastItemCount = 0;
+            this.lastSaleId    = null;
             this.clearCart();
             this.$nextTick(() => this.focusSearch());
         },
@@ -568,8 +589,10 @@ function posCart(storeUrl) {
                 });
 
                 if (res.ok) {
+                    const body         = await res.json();
                     this.lastTotal     = this.netTotal;
                     this.lastItemCount = this.items.reduce((s, i) => s + i.cantidad, 0);
+                    this.lastSaleId    = body.sale_id ?? null;
                     this.success       = true;
                 } else if (res.status === 422) {
                     const body = await res.json();
