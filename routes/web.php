@@ -151,13 +151,16 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
 
     // ── Almacenes (boss only) ─────────────────────────────────────────────────
     Route::middleware('boss')->group(function () {
-        Route::get('/almacenes',                         [AlmacenController::class, 'index'])->name('almacenes.index');
-        Route::get('/almacenes/nuevo',                   [AlmacenController::class, 'create'])->name('almacenes.create');
-        Route::post('/almacenes',                        [AlmacenController::class, 'store'])->name('almacenes.store');
-        Route::get('/almacenes/{almacen}',               [AlmacenController::class, 'show'])->name('almacenes.show');
-        Route::get('/almacenes/{almacen}/movimientos',   [AlmacenController::class, 'movements'])->name('almacenes.movements');
-        Route::get('/almacenes/{almacen}/editar',        [AlmacenController::class, 'edit'])->name('almacenes.edit');
-        Route::patch('/almacenes/{almacen}',             [AlmacenController::class, 'update'])->name('almacenes.update');
+        Route::get('/almacenes',                              [AlmacenController::class, 'index'])->name('almacenes.index');
+        Route::get('/almacenes/nuevo',                        [AlmacenController::class, 'create'])->name('almacenes.create');
+        Route::post('/almacenes',                             [AlmacenController::class, 'store'])->name('almacenes.store');
+        Route::get('/almacenes/{almacen}',                    [AlmacenController::class, 'show'])->name('almacenes.show');
+        Route::get('/almacenes/{almacen}/movimientos',        [AlmacenController::class, 'movements'])->name('almacenes.movements');
+        Route::get('/almacenes/{almacen}/editar',             [AlmacenController::class, 'edit'])->name('almacenes.edit');
+        Route::patch('/almacenes/{almacen}',                  [AlmacenController::class, 'update'])->name('almacenes.update');
+        Route::get('/almacenes/{almacen}/entrada',            [AlmacenController::class, 'createEntry'])->name('almacenes.entry.create');
+        Route::post('/almacenes/{almacen}/entrada',           [AlmacenController::class, 'storeEntry'])->name('almacenes.entry.store');
+        Route::post('/almacenes/{almacen}/ajustar',           [AlmacenController::class, 'adjustStock'])->name('almacenes.adjust');
     });
     Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
 

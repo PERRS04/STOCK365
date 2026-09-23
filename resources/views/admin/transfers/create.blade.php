@@ -23,10 +23,10 @@
 
     <form method="POST" action="{{ route('transfers.store') }}"
           x-data="{
-              fromType:      '{{ old('from_almacen_id') ? 'almacen' : 'sede' }}',
+              fromType:      '{{ old('from_almacen_id', request('from_almacen_id')) ? 'almacen' : 'sede' }}',
               toType:        '{{ old('to_almacen_id')   ? 'almacen' : 'sede' }}',
               fromSedeId:    '{{ old('from_sede_id',    '') }}',
-              fromAlmacenId: '{{ old('from_almacen_id', '') }}',
+              fromAlmacenId: '{{ old('from_almacen_id', request('from_almacen_id', '')) }}',
               toSedeId:      '{{ old('to_sede_id',      '') }}',
               toAlmacenId:   '{{ old('to_almacen_id',   '') }}',
               items: [{ product_id: '', cantidad: 1 }],
