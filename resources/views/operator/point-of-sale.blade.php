@@ -5,7 +5,7 @@
     x-data="posCart('{{ route('sales.store') }}')"
     x-init="init()"
     @add-to-cart.window="addItem($event.detail)"
-    @show-presentation-picker.window="openPicker($event.detail)"
+    x-on:show-presentation-picker.window="openPicker($event.detail)"
     @keydown.escape.window="handleEsc()"
     @keydown.f2.window.prevent="submitSale()"
     @keydown.ctrl.b.window.prevent="focusSearch()"
